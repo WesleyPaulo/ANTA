@@ -155,6 +155,10 @@ def toggle_daemon() -> None:
     """`anta toggle`: sinaliza o daemon (`anta run`) para alternar a gravacao."""
     from anta.platform.hotkey import default_command
 
+    if not hasattr(signal, "SIGUSR1"):  # Windows
+        print("[anta] 'anta toggle' e para Linux (Wayland/manual). No Windows o "
+              "atalho e capturado in-process pelo proprio 'anta run'.")
+        sys.exit(1)
     pid_path = _pidfile()
     if not pid_path.exists():
         print(f"[anta] daemon nao esta rodando. Inicie com: {default_command()} run")
