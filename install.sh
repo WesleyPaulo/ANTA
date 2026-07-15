@@ -27,23 +27,25 @@ sudo_if_needed() {
 }
 
 install_sys_deps_linux() {
+  # espeak-ng: fonemizacao do Piper (TTS). O wheel do piper-tts normalmente ja
+  # traz os dados, mas ter o pacote do SO evita TTS mudo por falta da lib.
   if have apt-get; then
     log "instalando libs de sistema (apt)..."
     sudo_if_needed apt-get update -y
     # build-essential: gcc + headers p/ compilar evdev (dep do pynput no Linux)
     sudo_if_needed apt-get install -y \
-      build-essential python3-dev libportaudio2 libsndfile1 pandoc libnotify-bin
+      build-essential python3-dev libportaudio2 libsndfile1 pandoc libnotify-bin espeak-ng
   elif have dnf; then
     log "instalando libs de sistema (dnf)..."
     sudo_if_needed dnf install -y \
-      gcc kernel-headers python3-devel portaudio libsndfile pandoc libnotify
+      gcc kernel-headers python3-devel portaudio libsndfile pandoc libnotify espeak-ng
   elif have pacman; then
     log "instalando libs de sistema (pacman)..."
     sudo_if_needed pacman -Sy --needed --noconfirm \
-      base-devel portaudio libsndfile pandoc libnotify
+      base-devel portaudio libsndfile pandoc libnotify espeak-ng
   else
     warn "gerenciador de pacotes nao reconhecido."
-    warn "instale manualmente: gcc + headers do Python/kernel, portaudio, libsndfile, pandoc, libnotify."
+    warn "instale manualmente: gcc + headers do Python/kernel, portaudio, libsndfile, pandoc, libnotify, espeak-ng."
   fi
 }
 

@@ -16,14 +16,18 @@ class Pipeline:
         llm: str,
         obsidian_vault: str | None = None,
         tts: bool = False,
+        tts_voice: str | None = None,
+        tts_output: str | None = None,
     ) -> None:
         self.transcriber = Transcriber(stt_key)
         self.brain = Brain(llm)
-        self.ctx = ExecContext.from_config(obsidian_vault, tts)
+        self.ctx = ExecContext.from_config(obsidian_vault, tts, tts_voice, tts_output)
 
     def warm(self) -> None:
-        """Carrega o modelo Whisper no boot para nao pagar o custo na 1a fala."""
+        """Carrega o Whisper e fixa o LLM na VRAM no boot para nao pagar o custo
+        na 1a fala (STT na CPU; LLM via keep_alive=-1 no Ollama)."""
         self.transcriber.load()
+        self.brain.warm()
 
     def run(self, audio) -> str:
         """Recebe o audio ja gravado e devolve a mensagem de feedback."""

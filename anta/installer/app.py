@@ -16,7 +16,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import (
-    Button, DataTable, Footer, Header, Label, RichLog, Select, Static,
+    Button, Checkbox, DataTable, Footer, Header, Label, RichLog, Select, Static,
 )
 
 from anta.core.config import (
@@ -59,6 +59,7 @@ class InstallerApp(App):
             yield Label("Microfone: ")
             yield Select(self._mic_options(), id="mic", value=_DEFAULT_MIC,
                          allow_blank=False)
+            yield Checkbox("Falar respostas (TTS)", value=self._cfg.tts, id="tts")
             yield Button("Instalar modo selecionado", id="go", variant="success")
         env = detect()
         yield Static(instructions_for(env, f"{default_command()} run"))
@@ -110,8 +111,9 @@ class InstallerApp(App):
             return
         mic = self.query_one("#mic", Select).value
         mic_name = None if mic == _DEFAULT_MIC else str(mic)
+        tts_on = self.query_one("#tts", Checkbox).value
         self.query_one("#go", Button).disabled = True
-        self._install(mode, mic_name)
+        self._install(mode, mic_name, tts_on)
 
     def _run_stream(self, argv: list[str]) -> int:
         """Roda um comando, transmitindo stdout para o log. Retorna returncode."""
@@ -130,7 +132,7 @@ class InstallerApp(App):
         return proc.wait()
 
     @work(thread=True, exclusive=True)
-    def _install(self, mode, mic_name: str | None) -> None:
+    def _install(self, mode, mic_name: str | None, tts_on: bool) -> None:
         log = lambda m: self.call_from_thread(self._log, m)  # noqa: E731
 
         # 1. LLM via Ollama
@@ -152,23 +154,39 @@ class InstallerApp(App):
         except Exception as e:  # noqa: BLE001
             log(f"[red]falha ao baixar STT: {e}[/]")
 
-        # 3. Salvar config do usuario
+        # 3. Voz TTS (so se o usuario ligou) — baixa a voz PT-BR padrao
+        tts_voice = None
+        if tts_on:
+            log("[b]Baixando voz TTS (Piper, PT-BR)[/]...")
+            try:
+                from anta.core.tts import ensure_voice
+
+                tts_voice = str(ensure_voice())
+                log("Voz TTS ok.")
+            except Exception as e:  # noqa: BLE001
+                log(f"[yellow]nao baixei a voz TTS: {e}. Deixando TTS desligado.[/]")
+                tts_on = False
+
+        # 4. Salvar config do usuario
         cfg = UserConfig(
             mode=mode.key,
             mic_device=mic_name,
             hotkey=self._cfg.hotkey,
             obsidian_vault=self._cfg.obsidian_vault,
-            tts=self._cfg.tts,
+            tts=tts_on,
+            tts_voice=tts_voice,
+            tts_output=self._cfg.tts_output,
         )
         path = save_user_config(cfg)
         log(f"Config salva em {path}")
 
-        # 4. Atalho global conforme o SO
-        log(setup_hotkey())
+        # 5. Atalho global conforme o SO
+        log(setup_hotkey(hotkey=cfg.hotkey))
 
-        # 5. Lembrete: manter o modelo quente
-        log("[b]Dica:[/] setar OLLAMA_KEEP_ALIVE=-1 (ex.: no servico do ollama) "
-            "mantem o LLM na VRAM e evita 5-10s de recarga por comando.")
+        # 6. Nota: o daemon ja fixa o LLM na VRAM no boot (Brain.warm, keep_alive=-1).
+        log("[b]Nota:[/] o daemon fixa o LLM na VRAM ao iniciar (keep_alive=-1); "
+            "para persistir entre reinicios, setar OLLAMA_KEEP_ALIVE=-1 no servico "
+            "do ollama tambem ajuda.")
         log(f"[green]Instalacao concluida.[/] Rode: {default_command()} run")
         self.call_from_thread(self._enable_go)
 

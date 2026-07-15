@@ -18,4 +18,8 @@ openai>=1.30        # cliente apontado para a API do Ollama (localhost:11434/v1)
 # Atalho global (X11/Windows). Wayland usa o compositor, nao estas libs.
 pynput>=1.7
 
+# TTS (so quando tts=true): sintese de voz local. Fornece PiperVoice; o
+# onnxruntime roda na CPU (nao toca a VRAM) e so e importado ao falar.
+piper-tts>=1.3
+
 # Externos (NAO via pip): Ollama (ollama.com) e pandoc (geracao de documentos)

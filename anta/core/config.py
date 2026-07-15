@@ -45,6 +45,8 @@ class UserConfig:
     hotkey: str = "ctrl+alt+space"
     obsidian_vault: str | None = None  # caminho do vault; None = ~/anta-notas
     tts: bool = False
+    tts_voice: str | None = None       # caminho do .onnx; None = voz padrao baixada
+    tts_output: str | None = None      # NOME do device de saida; None = padrao
 
     def mode_or_default(self, modes: list[Mode]) -> Mode:
         """Resolve o Mode correspondente, caindo no mais leve se o nome sumir."""
@@ -83,6 +85,8 @@ def load_user_config(path: str | Path | None = None) -> UserConfig:
         hotkey=data.get("hotkey", "ctrl+alt+space"),
         obsidian_vault=_clean(data.get("obsidian_vault", "")),
         tts=bool(data.get("tts", False)),
+        tts_voice=_clean(data.get("tts_voice", "")),
+        tts_output=_clean(data.get("tts_output", "")),
     )
 
 
@@ -103,6 +107,8 @@ def save_user_config(cfg: UserConfig, path: str | Path | None = None) -> Path:
         f"hotkey = {_toml_str(cfg.hotkey)}",
         f"obsidian_vault = {_toml_str(cfg.obsidian_vault or '')}",
         f"tts = {'true' if cfg.tts else 'false'}",
+        f"tts_voice = {_toml_str(cfg.tts_voice or '')}",
+        f"tts_output = {_toml_str(cfg.tts_output or '')}",
         "",
     ]
     p.write_text("\n".join(lines), encoding="utf-8")
