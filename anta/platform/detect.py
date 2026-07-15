@@ -24,12 +24,18 @@ class Environment:
     def hotkey_strategy(self) -> str:
         """Qual caminho de atalho global e viavel neste ambiente."""
         if self.os == "windows":
-            return "auto_win"          # RegisterHotKey via lib `keyboard`
+            return "auto_win"          # pynput GlobalHotKeys (in-process)
         if self.os == "linux" and self.session == "x11":
-            return "auto_x11"          # pynput/keyboard capturam global
+            return "auto_x11"          # pynput GlobalHotKeys (in-process)
         if self.os == "linux" and self.session == "wayland":
             return "compositor"        # KDE: kwriteconfig6 + fallback manual
         return "manual"                # macOS / desconhecido -> so documentacao
+
+    @property
+    def captures_hotkey_in_process(self) -> bool:
+        """True quando o daemon captura a tecla via pynput no proprio processo
+        (X11/Windows). No Wayland/manual o atalho do SO chama `anta toggle`."""
+        return self.hotkey_strategy in ("auto_x11", "auto_win")
 
 
 def detect() -> Environment:

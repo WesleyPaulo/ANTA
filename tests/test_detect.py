@@ -26,6 +26,12 @@ class TestHotkeyStrategy(unittest.TestCase):
     def test_linux_desconhecido_manual(self):
         self.assertEqual(_env("linux", "unknown").hotkey_strategy, "manual")
 
+    def test_captures_hotkey_in_process(self):
+        self.assertTrue(_env("linux", "x11").captures_hotkey_in_process)
+        self.assertTrue(_env("windows", "windows").captures_hotkey_in_process)
+        self.assertFalse(_env("linux", "wayland").captures_hotkey_in_process)
+        self.assertFalse(_env("macos", "unknown").captures_hotkey_in_process)
+
 
 class TestDetect(unittest.TestCase):
     def test_detecta_linux_wayland(self):

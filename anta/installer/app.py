@@ -24,7 +24,7 @@ from anta.core.config import (
 )
 from anta.installer.hardware import best_vram_gb, detect_gpus, status_for
 from anta.platform.detect import detect
-from anta.platform.hotkey import instructions_for, setup_hotkey
+from anta.platform.hotkey import default_command, instructions_for, setup_hotkey
 
 _COLOR = {"verde": "green", "amarelo": "yellow", "vermelho": "red"}
 _MARK = {"verde": "OK", "amarelo": "apertado", "vermelho": "nao roda"}
@@ -61,7 +61,7 @@ class InstallerApp(App):
                          allow_blank=False)
             yield Button("Instalar modo selecionado", id="go", variant="success")
         env = detect()
-        yield Static(instructions_for(env, "python -m anta run"))
+        yield Static(instructions_for(env, f"{default_command()} run"))
         yield RichLog(id="log", markup=True, wrap=True)
         yield Footer()
 
@@ -169,7 +169,7 @@ class InstallerApp(App):
         # 5. Lembrete: manter o modelo quente
         log("[b]Dica:[/] setar OLLAMA_KEEP_ALIVE=-1 (ex.: no servico do ollama) "
             "mantem o LLM na VRAM e evita 5-10s de recarga por comando.")
-        log("[green]Instalacao concluida.[/] Rode: python -m anta run")
+        log(f"[green]Instalacao concluida.[/] Rode: {default_command()} run")
         self.call_from_thread(self._enable_go)
 
     def _enable_go(self) -> None:

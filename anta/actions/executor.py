@@ -9,12 +9,11 @@ Seguranca: nada de shell arbitrario — o LLM so escolhe uma Acao do schema.
 """
 from __future__ import annotations
 
-from anta.actions.apps import APP_WHITELIST
 from anta.actions.context import ExecContext
 from anta.actions.registry import HANDLERS
 from anta.actions.schema import Decisao
 
-__all__ = ["ExecContext", "execute", "APP_WHITELIST"]
+__all__ = ["ExecContext", "execute"]
 
 
 def execute(decisao: Decisao, ctx: ExecContext | None = None) -> str:

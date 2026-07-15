@@ -19,7 +19,7 @@ from pathlib import Path
 from anta.platform.detect import Environment, detect
 
 
-def _default_command() -> str:
+def default_command() -> str:
     """Prefixo do comando usando o interpretador atual (robusto em venv)."""
     return f"{sys.executable} -m anta"
 
@@ -73,7 +73,7 @@ def _kde_instructions(toggle_command: str) -> str:
 def setup_hotkey(env: Environment | None = None, command: str | None = None) -> str:
     """Configura o atalho conforme o ambiente. Retorna instrucao para o usuario."""
     env = env or detect()
-    command = command or _default_command()
+    command = command or default_command()
     strategy = env.hotkey_strategy
 
     if strategy == "auto_x11":

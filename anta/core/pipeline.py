@@ -14,13 +14,11 @@ class Pipeline:
         self,
         stt_key: str,
         llm: str,
-        mic_device: str | None,
         obsidian_vault: str | None = None,
         tts: bool = False,
     ) -> None:
         self.transcriber = Transcriber(stt_key)
         self.brain = Brain(llm)
-        self.mic_device = mic_device
         self.ctx = ExecContext.from_config(obsidian_vault, tts)
 
     def warm(self) -> None:

@@ -49,12 +49,48 @@ def _to_pynput_hotkey(hotkey: str) -> str:
     return "+".join(parts)
 
 
+class Session:
+    """Maquina de estado do push-to-talk: alterna gravar/encerrar e roda o
+    pipeline ao encerrar. Isolada de run() (que so faz wiring de ciclo de vida)
+    para ser testavel com fakes de recorder/pipeline/notify."""
+
+    def __init__(self, recorder, pipeline, notify=_notify) -> None:
+        self.recorder = recorder
+        self.pipeline = pipeline
+        self.notify = notify
+        self.on = False
+
+    def toggle(self) -> None:
+        if not self.on:
+            try:
+                self.recorder.start()
+                self.on = True
+                self.notify("gravando... (aperte de novo para encerrar)")
+            except Exception as e:  # noqa: BLE001
+                self.notify(f"nao consegui abrir o microfone: {e}")
+            return
+        # 2a pressao: encerra e roda o pipeline
+        self.on = False
+        try:
+            audio = self.recorder.stop()
+        except Exception as e:  # noqa: BLE001
+            self.notify(f"erro ao encerrar a gravacao: {e}")
+            return
+        self.notify("processando...")
+        try:
+            feedback = self.pipeline.run(audio)
+        except Exception as e:  # noqa: BLE001
+            self.notify(f"erro no pipeline: {e}")
+            return
+        self.notify(feedback)
+
+
 def run() -> None:
     from anta.core.config import config_path, load_modes, load_user_config
     from anta.core.capture import Recorder
     from anta.core.pipeline import Pipeline
     from anta.platform.detect import detect
-    from anta.platform.hotkey import instructions_for
+    from anta.platform.hotkey import default_command, instructions_for
 
     cfg = load_user_config()
     modes = load_modes()
@@ -62,7 +98,7 @@ def run() -> None:
 
     _notify(f"iniciando modo '{mode.label}' — carregando modelos...")
     pipeline = Pipeline(
-        stt_key=mode.stt, llm=mode.llm, mic_device=cfg.mic_device,
+        stt_key=mode.stt, llm=mode.llm,
         obsidian_vault=cfg.obsidian_vault, tts=cfg.tts,
     )
     try:
@@ -71,31 +107,7 @@ def run() -> None:
         _notify(f"aviso: falha ao carregar STT ({e}). Vou tentar sob demanda.")
 
     recorder = Recorder(cfg.mic_device)
-    recording = {"on": False}
-
-    def toggle() -> None:
-        if not recording["on"]:
-            try:
-                recorder.start()
-                recording["on"] = True
-                _notify("gravando... (aperte de novo para encerrar)")
-            except Exception as e:  # noqa: BLE001
-                _notify(f"nao consegui abrir o microfone: {e}")
-            return
-        # 2a pressao: encerra e roda o pipeline
-        recording["on"] = False
-        try:
-            audio = recorder.stop()
-        except Exception as e:  # noqa: BLE001
-            _notify(f"erro ao encerrar a gravacao: {e}")
-            return
-        _notify("processando...")
-        try:
-            feedback = pipeline.run(audio)
-        except Exception as e:  # noqa: BLE001
-            _notify(f"erro no pipeline: {e}")
-            return
-        _notify(feedback)
+    session = Session(recorder, pipeline, _notify)
 
     # pidfile para o `anta toggle` achar este processo
     pid_path = _pidfile()
@@ -108,8 +120,8 @@ def run() -> None:
 
     env = detect()
     listener = None
-    strategy = env.hotkey_strategy
-    if strategy in ("auto_x11", "auto_win"):
+    toggle_cmd = f"{default_command()} toggle"
+    if env.captures_hotkey_in_process:
         try:
             from pynput import keyboard
 
@@ -120,17 +132,17 @@ def run() -> None:
             _notify(f"ouvindo atalho {cfg.hotkey}. Fale apos apertar.")
         except Exception as e:  # noqa: BLE001
             _notify(f"nao consegui registrar {cfg.hotkey} in-process ({e}). "
-                    f"Use: python -m anta toggle (vincule ao atalho do SO).")
+                    f"Use: {toggle_cmd} (vincule ao atalho do SO).")
     else:
-        _notify(instructions_for(env, "python -m anta toggle"))
+        _notify(instructions_for(env, toggle_cmd))
         _notify(f"daemon quente. Config em {config_path()}. "
-                f"Vincule o atalho do SO a: python -m anta toggle")
+                f"Vincule o atalho do SO a: {toggle_cmd}")
 
     try:
         while True:
             _trigger.wait()
             _trigger.clear()
-            toggle()
+            session.toggle()
     except KeyboardInterrupt:
         pass
     finally:
@@ -141,16 +153,18 @@ def run() -> None:
 
 def toggle_daemon() -> None:
     """`anta toggle`: sinaliza o daemon (`anta run`) para alternar a gravacao."""
+    from anta.platform.hotkey import default_command
+
     pid_path = _pidfile()
     if not pid_path.exists():
-        print("[anta] daemon nao esta rodando. Inicie com: python -m anta run")
+        print(f"[anta] daemon nao esta rodando. Inicie com: {default_command()} run")
         sys.exit(1)
     try:
         pid = int(pid_path.read_text(encoding="utf-8").strip())
         os.kill(pid, signal.SIGUSR1)
     except (ValueError, ProcessLookupError, PermissionError, OSError) as e:
         print(f"[anta] nao consegui sinalizar o daemon ({e}). "
-              f"Reinicie com: python -m anta run")
+              f"Reinicie com: {default_command()} run")
         pid_path.unlink(missing_ok=True)
         sys.exit(1)
 
