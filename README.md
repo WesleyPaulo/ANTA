@@ -48,9 +48,21 @@ Externos (nao via pip): **Ollama** e **pandoc**.
 ## Escopo do MVP (v0.1)
 
 - **So microfone** (sem audio do sistema / reuniao).
-- **So Linux** como alvo de execucao — o instalador ja e cross-platform e
-  detecta VRAM nos dois SOs; Windows fica marcado como "planejado".
+- **Linux** e o alvo testado. **Windows** e cross-platform no codigo (deteccao,
+  VRAM via NVIDIA, atalho, config em %APPDATA%) e deve rodar em Windows+NVIDIA,
+  mas ainda nao foi testado. **macOS** nao e suportado: o gating por VRAM assume
+  GPU NVIDIA e bloqueia o instalador em Apple Silicon.
 - Atalho: instrucao correta por SO; automacao onde e confiavel, doc onde nao e.
+
+## Instalacao (usuario)
+
+Um comando instala os pre-requisitos (libs nativas, pandoc, Ollama), prepara o
+ambiente com [uv](https://docs.astral.sh/uv/) e abre o instalador TUI:
+
+```bash
+./install.sh                                              # Linux e macOS
+powershell -ExecutionPolicy Bypass -File .\install.ps1    # Windows
+```
 
 ## Instalacao (dev)
 
