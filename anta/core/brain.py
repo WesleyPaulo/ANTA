@@ -42,6 +42,27 @@ class Brain:
             )
         return self._client
 
+    def warm(self) -> None:
+        """Fixa o modelo na VRAM com um preload keep_alive=-1 no endpoint NATIVO
+        do Ollama (/api/generate sem prompt so carrega e mantem o modelo). Cumpre
+        o principio 'modelo sempre quente' no nivel do app — o endpoint
+        OpenAI-compat nao aceita keep_alive. Best-effort: se o Ollama nao estiver
+        de pe, nao derruba o boot (o chamador ja envolve warm() em try/except)."""
+        import json
+        import urllib.request
+
+        base = self.base_url.rsplit("/v1", 1)[0]  # http://host:11434/v1 -> raiz nativa
+        payload = json.dumps({"model": self.llm, "keep_alive": -1}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{base}/api/generate", data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                r.read()
+        except (OSError, ValueError):
+            pass
+
     def decide(self, texto: str) -> Decisao:
         return self._get_client().chat.completions.create(
             model=self.llm,
