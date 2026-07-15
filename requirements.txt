@@ -1,17 +1,17 @@
 # Instalador / core
 textual>=0.60
 PyYAML>=6.0
-pynvml>=11.5        # fallback de deteccao de VRAM (nvidia-smi e o caminho principal)
+nvidia-ml-py>=12    # fallback de deteccao de VRAM (fornece o modulo `pynvml`; nvidia-smi e o principal)
 
 # Audio (MVP: so microfone, cross-platform)
 sounddevice>=0.4
-soundfile>=0.12
 numpy>=1.26
 
 # STT
 faster-whisper>=1.0
 
 # Cerebro (saida estruturada)
+pydantic>=2         # schema das acoes (importado direto em actions/schema.py)
 instructor>=1.0
 openai>=1.30        # cliente apontado para a API do Ollama (localhost:11434/v1)
 
