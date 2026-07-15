@@ -40,6 +40,8 @@ def _resolve_device(device_name: str | None) -> int | None:
     nome estiver vazio ou nao existir mais (ex.: headset desconectado)."""
     if not device_name:
         return None
+    import sounddevice as sd
+
     target = device_name.strip().lower()
     fallback = None
     for idx, d in enumerate(sd.query_devices()):

@@ -14,13 +14,13 @@ modes:
   pesado:
     label: "Modo Pesado"
     vram_gb: 8
-    llm: "qwen3.5:9b"
+    llm: "qwen3:8b"          # ~5.2GB; cabe folgado em 8GB (STT fica na CPU)
     stt: "large-v3"
     description: "Geração de documentos e transcrição precisa em PT-BR. 8GB+."
 
   ultra:
     label: "Modo Ultra Esforço"
     vram_gb: 12
-    llm: "qwen3.5:14b"
+    llm: "qwen3:14b"        # ~9.3GB; cabe em 12GB
     stt: "large-v3"
     description: "Máxima qualidade. Requer GPU de 12GB+ de VRAM."
