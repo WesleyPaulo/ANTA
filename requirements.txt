@@ -1,0 +1,21 @@
+# Instalador / core
+textual>=0.60
+PyYAML>=6.0
+pynvml>=11.5        # fallback de deteccao de VRAM (nvidia-smi e o caminho principal)
+
+# Audio (MVP: so microfone, cross-platform)
+sounddevice>=0.4
+soundfile>=0.12
+numpy>=1.26
+
+# STT
+faster-whisper>=1.0
+
+# Cerebro (saida estruturada)
+instructor>=1.0
+openai>=1.30        # cliente apontado para a API do Ollama (localhost:11434/v1)
+
+# Atalho global (X11/Windows). Wayland usa o compositor, nao estas libs.
+pynput>=1.7
+
+# Externos (NAO via pip): Ollama (ollama.com) e pandoc (geracao de documentos)

@@ -1,0 +1,26 @@
+# modes.yaml — o coração do projeto.
+# Cada modo é uma entrada declarativa. O instalador lê este arquivo,
+# detecta a VRAM da máquina e recomenda/bloqueia modos com base em `vram_gb`.
+# Adicionar um novo tier = adicionar um bloco aqui. Nenhum código muda.
+
+modes:
+  leve:
+    label: "Modo Leve"
+    vram_gb: 4
+    llm: "qwen3:4b"          # tag do modelo no Ollama
+    stt: "turbo"             # faster-whisper: large-v3-turbo (int8)
+    description: "Comandos rápidos e notas curtas. Roda folgado em 4GB+."
+
+  pesado:
+    label: "Modo Pesado"
+    vram_gb: 8
+    llm: "qwen3.5:9b"
+    stt: "large-v3"
+    description: "Geração de documentos e transcrição precisa em PT-BR. 8GB+."
+
+  ultra:
+    label: "Modo Ultra Esforço"
+    vram_gb: 12
+    llm: "qwen3.5:14b"
+    stt: "large-v3"
+    description: "Máxima qualidade. Requer GPU de 12GB+ de VRAM."

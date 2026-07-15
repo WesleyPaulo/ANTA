@@ -1,0 +1,17 @@
+[project]
+name = "voz"
+version = "0.1.0"
+description = "Assistente de voz local, push-to-talk, com instalador cross-platform que recomenda modos por VRAM."
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.scripts]
+voz = "voz.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["voz*"]

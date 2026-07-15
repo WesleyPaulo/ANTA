@@ -1,0 +1,6 @@
+# Gerado pelo instalador. Copie para config.toml (ou o instalador cria).
+mode = "leve"                 # leve | pesado | ultra
+mic_device = ""               # NOME do microfone (vazio = default do sistema)
+hotkey = "ctrl+alt+space"     # usado onde a automacao de atalho e possivel
+obsidian_vault = ""           # caminho do vault para salvar notas/documentos
+tts = false                   # true = responder tambem por voz (Piper)
