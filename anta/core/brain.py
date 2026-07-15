@@ -25,9 +25,11 @@ class Brain:
     5-10s de recarga a cada comando (ver README / instalador).
     """
 
-    def __init__(self, llm: str, base_url: str = OLLAMA_BASE_URL) -> None:
+    def __init__(self, llm: str, base_url: str = OLLAMA_BASE_URL,
+                 timeout: float = 60.0) -> None:
         self.llm = llm
         self.base_url = base_url
+        self.timeout = timeout  # evita o daemon single-thread travar se o Ollama pendurar
         self._client = None
 
     def _get_client(self):
@@ -36,7 +38,7 @@ class Brain:
             from openai import OpenAI
 
             self._client = instructor.from_openai(
-                OpenAI(base_url=self.base_url, api_key="ollama")
+                OpenAI(base_url=self.base_url, api_key="ollama", timeout=self.timeout)
             )
         return self._client
 

@@ -10,11 +10,20 @@ import threading
 
 import numpy as np
 
-# Dependencias: sounddevice, soundfile, numpy
+# Dependencias: sounddevice, numpy
 
 SAMPLE_RATE = 16000       # Whisper espera 16kHz mono
 MAX_SECONDS = 60          # corte de seguranca: atalho esquecido apertado
 _MAX_SAMPLES = SAMPLE_RATE * MAX_SECONDS
+
+
+def _input_devices():
+    """(indice_global, device) apenas dos devices de ENTRADA (microfones)."""
+    import sounddevice as sd
+
+    for idx, d in enumerate(sd.query_devices()):
+        if d.get("max_input_channels", 0) > 0:
+            yield idx, d
 
 
 def list_input_devices() -> list[dict]:
@@ -23,9 +32,7 @@ def list_input_devices() -> list[dict]:
     Guardar o NOME do device escolhido na config (nao o indice/default),
     para nao quebrar quando um headset USB mudar o default no meio do dia.
     """
-    import sounddevice as sd
-
-    return [dict(d) for d in sd.query_devices() if d.get("max_input_channels", 0) > 0]
+    return [dict(d) for _, d in _input_devices()]
 
 
 def _resolve_device(device_name: str | None) -> int | None:
@@ -33,13 +40,17 @@ def _resolve_device(device_name: str | None) -> int | None:
     nome estiver vazio ou nao existir mais (ex.: headset desconectado)."""
     if not device_name:
         return None
-    import sounddevice as sd
-
     target = device_name.strip().lower()
+    fallback = None
     for idx, d in enumerate(sd.query_devices()):
-        if d.get("max_input_channels", 0) > 0 and target in d["name"].lower():
-            return idx
-    return None  # nome sumiu -> cai no default em vez de quebrar
+        if d.get("max_input_channels", 0) <= 0:
+            continue
+        name = d["name"].lower()
+        if name == target:
+            return idx                      # nome exato vence
+        if fallback is None and target in name:
+            fallback = idx                  # tolera mudanca de sufixo (headset renomeado)
+    return fallback  # None se o nome sumiu -> cai no default em vez de quebrar
 
 
 class Recorder:
@@ -67,9 +78,17 @@ class Recorder:
             self._chunks.append(indata.copy())
             self._total += frames
 
+    def _close_stream(self) -> None:
+        """Encerra e descarta o stream atual, se houver. Idempotente."""
+        if self._stream is not None:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+
     def start(self) -> None:
         import sounddevice as sd
 
+        self._close_stream()  # imune a start() repetido / stream orfao apos erro
         with self._lock:
             self._chunks = []
             self._total = 0
@@ -84,10 +103,7 @@ class Recorder:
         self._stream.start()
 
     def stop(self) -> np.ndarray:
-        if self._stream is not None:
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
+        self._close_stream()
         with self._lock:
             chunks, self._chunks = self._chunks, []
         if not chunks:
