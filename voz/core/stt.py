@@ -17,20 +17,32 @@ _MODEL_MAP = {
 
 
 class Transcriber:
-    """
-    TODO(claude-code):
-      from faster_whisper import WhisperModel
-      self.model = WhisperModel(_MODEL_MAP[stt_key],
-                                device="cpu", compute_type="int8")
-      def transcribe(audio) -> str:
-          segments, _ = self.model.transcribe(audio, language="pt")
-          return " ".join(s.text for s in segments).strip()
-    Observacao PT-BR: large-v3 acerta muito mais nomes proprios e jargao
-    tecnico que os modelos menores; 'turbo' e o trade-off de velocidade.
+    """Transcreve audio PT-BR com faster-whisper na CPU (int8).
+
+    O modelo e carregado preguicosamente (load()) para nao baixar ~1GB so
+    de instanciar — o runtime chama load() no boot para deixa-lo quente.
+
+    PT-BR: large-v3 acerta muito mais nomes proprios e jargao tecnico que os
+    modelos menores; 'turbo' e o trade-off de velocidade.
     """
 
     def __init__(self, stt_key: str) -> None:
         self.stt_key = stt_key
+        self.model_name = _MODEL_MAP.get(stt_key, stt_key)
+        self._model = None
+
+    def load(self):
+        """Carrega (e baixa, se preciso) o modelo. Idempotente."""
+        if self._model is None:
+            from faster_whisper import WhisperModel
+
+            self._model = WhisperModel(
+                self.model_name, device="cpu", compute_type="int8"
+            )
+        return self._model
 
     def transcribe(self, audio) -> str:
-        raise NotImplementedError
+        if audio is None or len(audio) == 0:
+            return ""
+        segments, _ = self.load().transcribe(audio, language="pt")
+        return " ".join(s.text.strip() for s in segments).strip()

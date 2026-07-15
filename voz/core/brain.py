@@ -14,28 +14,39 @@ SYSTEM_PROMPT = (
     "no formato estruturado. Se for so uma pergunta ou conversa, use 'responder'."
 )
 
+OLLAMA_BASE_URL = "http://localhost:11434/v1"
+
 
 class Brain:
-    """
-    TODO(claude-code):
-      import instructor
-      from openai import OpenAI
-      client = instructor.from_openai(
-          OpenAI(base_url="http://localhost:11434/v1", api_key="ollama"))
-      def decide(texto: str) -> Decisao:
-          return client.chat.completions.create(
-              model=self.llm,               # ex: "qwen3.5:9b" (do modo)
-              messages=[{"role":"system","content":SYSTEM_PROMPT},
-                        {"role":"user","content":texto}],
-              response_model=Decisao,
-              temperature=0.1,
-          )
+    """Decide a Acao a partir do texto. O cliente e construido preguicosamente
+    para nao exigir Ollama de pe apenas para importar/instanciar.
+
     IMPORTANTE: setar OLLAMA_KEEP_ALIVE para manter o modelo quente e evitar
     5-10s de recarga a cada comando (ver README / instalador).
     """
 
-    def __init__(self, llm: str) -> None:
+    def __init__(self, llm: str, base_url: str = OLLAMA_BASE_URL) -> None:
         self.llm = llm
+        self.base_url = base_url
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            import instructor
+            from openai import OpenAI
+
+            self._client = instructor.from_openai(
+                OpenAI(base_url=self.base_url, api_key="ollama")
+            )
+        return self._client
 
     def decide(self, texto: str) -> Decisao:
-        raise NotImplementedError
+        return self._get_client().chat.completions.create(
+            model=self.llm,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": texto},
+            ],
+            response_model=Decisao,
+            temperature=0.1,
+        )

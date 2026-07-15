@@ -4,23 +4,33 @@
 """
 from __future__ import annotations
 
-from voz.actions.executor import execute
+from voz.actions.executor import ExecContext, execute
 from voz.core.brain import Brain
 from voz.core.stt import Transcriber
 
 
 class Pipeline:
-    def __init__(self, stt_key: str, llm: str, mic_device: str | None) -> None:
+    def __init__(
+        self,
+        stt_key: str,
+        llm: str,
+        mic_device: str | None,
+        obsidian_vault: str | None = None,
+        tts: bool = False,
+    ) -> None:
         self.transcriber = Transcriber(stt_key)
         self.brain = Brain(llm)
         self.mic_device = mic_device
+        self.ctx = ExecContext.from_config(obsidian_vault, tts)
+
+    def warm(self) -> None:
+        """Carrega o modelo Whisper no boot para nao pagar o custo na 1a fala."""
+        self.transcriber.load()
 
     def run(self, audio) -> str:
-        """Recebe o audio ja gravado e devolve a mensagem de feedback.
-
-        TODO(claude-code):
-          texto = self.transcriber.transcribe(audio)
-          decisao = self.brain.decide(texto)
-          return execute(decisao)
-        """
-        raise NotImplementedError
+        """Recebe o audio ja gravado e devolve a mensagem de feedback."""
+        texto = self.transcriber.transcribe(audio)
+        if not texto:
+            return "Nao entendi — nada foi transcrito."
+        decisao = self.brain.decide(texto)
+        return execute(decisao, self.ctx)
