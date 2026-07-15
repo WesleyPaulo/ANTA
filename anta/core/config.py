@@ -43,7 +43,7 @@ class UserConfig:
     mode: str = "leve"
     mic_device: str | None = None      # NOME do device; None = default do sistema
     hotkey: str = "ctrl+alt+space"
-    obsidian_vault: str | None = None  # caminho do vault; None = ~/voz-notas
+    obsidian_vault: str | None = None  # caminho do vault; None = ~/anta-notas
     tts: bool = False
 
     def mode_or_default(self, modes: list[Mode]) -> Mode:
@@ -58,7 +58,7 @@ def config_dir() -> Path:
         base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
     else:
         base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "voz"
+    return Path(base) / "anta"
 
 
 def config_path() -> Path:
@@ -97,7 +97,7 @@ def save_user_config(cfg: UserConfig, path: str | Path | None = None) -> Path:
     p = Path(path) if path is not None else config_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# Gerado pelo instalador do voz. Editar a mao tambem funciona.",
+        "# Gerado pelo instalador do ANTA. Editar a mao tambem funciona.",
         f"mode = {_toml_str(cfg.mode)}",
         f"mic_device = {_toml_str(cfg.mic_device or '')}",
         f"hotkey = {_toml_str(cfg.hotkey)}",

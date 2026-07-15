@@ -6,7 +6,7 @@ Sem instructor o modelo inventa formato.
 """
 from __future__ import annotations
 
-from voz.actions.schema import Decisao
+from anta.actions.schema import Decisao
 
 SYSTEM_PROMPT = (
     "Voce e um assistente pessoal local. Dado o que o usuario falou, "

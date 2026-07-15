@@ -3,7 +3,7 @@
 O comando a ser executado pelo atalho e sempre:
 
 ```
-python -m voz run
+python -m anta run
 ```
 
 O instalador detecta seu sistema e mostra a instrucao certa. Abaixo, o manual
@@ -15,7 +15,7 @@ proprio KDE:
 
 1. Configuracoes do Sistema → **Atalhos**
 2. **Adicionar** → **Atalho de Comando/URL**
-3. No comando, cole: `python -m voz run`
+3. No comando, cole: `python -m anta run`
 4. Clique na coluna de atalho e pressione a combinacao (ex.: `Ctrl+Alt+Espaco`)
 5. Aplicar
 
@@ -30,7 +30,7 @@ O instalador pode registrar automaticamente (pynput). Manual:
 ## Windows
 O instalador registra automaticamente (bandeja + RegisterHotKey). Manual:
 - Crie um atalho `.lnk` para o comando, ou use um app de hotkey (ex.: AutoHotkey)
-  apontando para `python -m voz run`.
+  apontando para `python -m anta run`.
 
 ## Modo de uso
 Toggle: **1a** pressao comeca a gravar do microfone; **2a** pressao encerra e

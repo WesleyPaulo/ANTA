@@ -2,7 +2,7 @@
 uniao discriminada 'Decisao' desserializa cada tipo de acao corretamente."""
 import unittest
 
-from voz.actions.schema import (
+from anta.actions.schema import (
     AbrirApp, AdicionarTarefa, CriarDocumento, CriarNota, Decisao, Responder,
 )
 

@@ -4,9 +4,9 @@
 """
 from __future__ import annotations
 
-from voz.actions.executor import ExecContext, execute
-from voz.core.brain import Brain
-from voz.core.stt import Transcriber
+from anta.actions.executor import ExecContext, execute
+from anta.core.brain import Brain
+from anta.core.stt import Transcriber
 
 
 class Pipeline:

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from voz.actions.schema import (
+from anta.actions.schema import (
     AbrirApp, AdicionarTarefa, CriarDocumento, CriarNota, Decisao, Responder,
 )
 

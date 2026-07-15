@@ -1,6 +1,6 @@
 import unittest
 
-from voz.installer.hardware import status_for
+from anta.installer.hardware import status_for
 
 
 class TestStatusFor(unittest.TestCase):

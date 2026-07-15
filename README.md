@@ -1,6 +1,6 @@
-# voz — assistente de voz local, push-to-talk
+# ANTA — assistente de voz local, push-to-talk
 
-> Nome provisorio. Renomeie o repo e o pacote `voz` a vontade.
+> **ANTA** = Assistente de Notas, Textos e Ações. Pacote Python: `anta`.
 
 Assistente pessoal **100% local e offline**. Voce aperta um atalho, fala, e ele
 transcreve, entende a intencao e executa uma acao segura (criar nota, gerar
@@ -56,17 +56,18 @@ Externos (nao via pip): **Ollama** e **pandoc**.
 
 ```bash
 pip install -r requirements.txt
-python -m voz            # abre o instalador (TUI)
-python -m voz run        # roda o assistente (apos configurar)
+python -m anta            # abre o instalador (TUI)
+python -m anta run        # roda o assistente (apos configurar)
 ```
 
 ## Estrutura
 
 ```
-voz/
+anta/
   installer/   TUI Textual + deteccao de VRAM (hardware.py)
   core/        capture · stt · brain · pipeline · config
-  actions/     schema Pydantic (acoes permitidas) + executor
+  actions/     schema Pydantic · executor (fachada) · registry · apps (whitelist)
+    handlers/  um arquivo por acao (criar_nota, criar_documento, ...)
   platform/    detect (SO/sessao) · hotkey (atalho por SO)
 modes.yaml     manifesto dos modos
 docs/atalhos.md instrucoes de atalho por sistema

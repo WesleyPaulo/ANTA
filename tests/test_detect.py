@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from voz.platform.detect import Environment, detect
+from anta.platform.detect import Environment, detect
 
 
 def _env(os_, session):

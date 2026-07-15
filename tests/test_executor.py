@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from voz.actions.executor import ExecContext, execute
-from voz.actions.schema import (
+from anta.actions.executor import ExecContext, execute
+from anta.actions.schema import (
     AbrirApp, AdicionarTarefa, CriarDocumento, CriarNota, Decisao, Responder,
 )
 

@@ -1,8 +1,8 @@
 """Entrypoint.
 
-  python -m voz          -> abre o instalador (TUI)
-  python -m voz run      -> roda o assistente (daemon quente, push-to-talk)
-  python -m voz toggle   -> alterna a gravacao do daemon (usado pelo atalho do SO
+  python -m anta          -> abre o instalador (TUI)
+  python -m anta run      -> roda o assistente (daemon quente, push-to-talk)
+  python -m anta toggle   -> alterna a gravacao do daemon (usado pelo atalho do SO
                             no Wayland, onde apps nao capturam teclas globais)
 """
 from __future__ import annotations
@@ -19,17 +19,17 @@ _trigger = threading.Event()
 
 
 def _pidfile():
-    from voz.core.config import config_dir
+    from anta.core.config import config_dir
 
-    return config_dir() / "voz.pid"
+    return config_dir() / "anta.pid"
 
 
 def _notify(msg: str) -> None:
     """Feedback curto: notify-send no Linux, print sempre."""
-    print(f"[voz] {msg}")
+    print(f"[anta] {msg}")
     if sys.platform.startswith("linux") and shutil.which("notify-send"):
         try:
-            subprocess.run(["notify-send", "voz", msg], timeout=5, check=False)
+            subprocess.run(["notify-send", "anta", msg], timeout=5, check=False)
         except (OSError, subprocess.SubprocessError):
             pass
 
@@ -50,11 +50,11 @@ def _to_pynput_hotkey(hotkey: str) -> str:
 
 
 def run() -> None:
-    from voz.core.config import config_path, load_modes, load_user_config
-    from voz.core.capture import Recorder
-    from voz.core.pipeline import Pipeline
-    from voz.platform.detect import detect
-    from voz.platform.hotkey import instructions_for
+    from anta.core.config import config_path, load_modes, load_user_config
+    from anta.core.capture import Recorder
+    from anta.core.pipeline import Pipeline
+    from anta.platform.detect import detect
+    from anta.platform.hotkey import instructions_for
 
     cfg = load_user_config()
     modes = load_modes()
@@ -97,7 +97,7 @@ def run() -> None:
             return
         _notify(feedback)
 
-    # pidfile para o `voz toggle` achar este processo
+    # pidfile para o `anta toggle` achar este processo
     pid_path = _pidfile()
     pid_path.parent.mkdir(parents=True, exist_ok=True)
     pid_path.write_text(str(os.getpid()), encoding="utf-8")
@@ -120,11 +120,11 @@ def run() -> None:
             _notify(f"ouvindo atalho {cfg.hotkey}. Fale apos apertar.")
         except Exception as e:  # noqa: BLE001
             _notify(f"nao consegui registrar {cfg.hotkey} in-process ({e}). "
-                    f"Use: python -m voz toggle (vincule ao atalho do SO).")
+                    f"Use: python -m anta toggle (vincule ao atalho do SO).")
     else:
-        _notify(instructions_for(env, "python -m voz toggle"))
+        _notify(instructions_for(env, "python -m anta toggle"))
         _notify(f"daemon quente. Config em {config_path()}. "
-                f"Vincule o atalho do SO a: python -m voz toggle")
+                f"Vincule o atalho do SO a: python -m anta toggle")
 
     try:
         while True:
@@ -140,17 +140,17 @@ def run() -> None:
 
 
 def toggle_daemon() -> None:
-    """`voz toggle`: sinaliza o daemon (`voz run`) para alternar a gravacao."""
+    """`anta toggle`: sinaliza o daemon (`anta run`) para alternar a gravacao."""
     pid_path = _pidfile()
     if not pid_path.exists():
-        print("[voz] daemon nao esta rodando. Inicie com: python -m voz run")
+        print("[anta] daemon nao esta rodando. Inicie com: python -m anta run")
         sys.exit(1)
     try:
         pid = int(pid_path.read_text(encoding="utf-8").strip())
         os.kill(pid, signal.SIGUSR1)
     except (ValueError, ProcessLookupError, PermissionError, OSError) as e:
-        print(f"[voz] nao consegui sinalizar o daemon ({e}). "
-              f"Reinicie com: python -m voz run")
+        print(f"[anta] nao consegui sinalizar o daemon ({e}). "
+              f"Reinicie com: python -m anta run")
         pid_path.unlink(missing_ok=True)
         sys.exit(1)
 
@@ -163,7 +163,7 @@ def main() -> None:
     if arg == "toggle":
         toggle_daemon()
         return
-    from voz.installer.app import main as installer
+    from anta.installer.app import main as installer
 
     installer()
 

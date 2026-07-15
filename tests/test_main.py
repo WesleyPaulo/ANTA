@@ -1,6 +1,6 @@
 import unittest
 
-from voz.__main__ import _to_pynput_hotkey
+from anta.__main__ import _to_pynput_hotkey
 
 
 class TestHotkeyConversion(unittest.TestCase):

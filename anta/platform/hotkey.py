@@ -1,9 +1,9 @@
 """Configuracao do atalho global, em camadas, decidida pelo SO detectado.
 
 Estrategia (ver detect.Environment.hotkey_strategy):
-  auto_win    -> Windows: daemon `voz run` no login; captura a tecla in-process
-  auto_x11    -> Linux X11: daemon `voz run` no login; captura a tecla in-process
-  compositor  -> Linux Wayland/KDE: daemon quente + atalho do SO chama `voz toggle`
+  auto_win    -> Windows: daemon `anta run` no login; captura a tecla in-process
+  auto_x11    -> Linux X11: daemon `anta run` no login; captura a tecla in-process
+  compositor  -> Linux Wayland/KDE: daemon quente + atalho do SO chama `anta toggle`
   manual      -> macOS/desconhecido: apenas instrucao
 
 Filosofia: automacao onde e confiavel; documentacao onde nao e. No Wayland
@@ -16,23 +16,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-from voz.platform.detect import Environment, detect
+from anta.platform.detect import Environment, detect
 
 
 def _default_command() -> str:
     """Prefixo do comando usando o interpretador atual (robusto em venv)."""
-    return f"{sys.executable} -m voz"
+    return f"{sys.executable} -m anta"
 
 
 def _autostart_linux(command: str) -> bool:
-    """Cria ~/.config/autostart/voz.desktop para subir o daemon ao logar."""
+    """Cria ~/.config/autostart/anta.desktop para subir o daemon ao logar."""
     try:
-        path = Path.home() / ".config" / "autostart" / "voz.desktop"
+        path = Path.home() / ".config" / "autostart" / "anta.desktop"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             "[Desktop Entry]\n"
             "Type=Application\n"
-            "Name=voz\n"
+            "Name=anta\n"
             f"Exec={command}\n"
             "X-GNOME-Autostart-enabled=true\n"
             "Comment=Assistente de voz push-to-talk (daemon quente)\n",
@@ -49,7 +49,7 @@ def _autostart_windows(command: str) -> bool:
         subprocess.run(
             ["reg", "add",
              r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-             "/v", "voz", "/t", "REG_SZ", "/d", command, "/f"],
+             "/v", "anta", "/t", "REG_SZ", "/d", command, "/f"],
             capture_output=True, timeout=10, check=True,
         )
         return True
@@ -79,14 +79,14 @@ def setup_hotkey(env: Environment | None = None, command: str | None = None) -> 
     if strategy == "auto_x11":
         ok = _autostart_linux(f"{command} run")
         base = instructions_for(env, f"{command} run")
-        prefix = ("Daemon 'voz run' adicionado ao autostart; ele escuta o atalho "
+        prefix = ("Daemon 'anta run' adicionado ao autostart; ele escuta o atalho "
                   "configurado ao logar.\n") if ok else ""
         return prefix + base
 
     if strategy == "auto_win":
         ok = _autostart_windows(f"{command} run")
         base = instructions_for(env, f"{command} run")
-        prefix = "Daemon 'voz run' registrado no login do Windows.\n" if ok else ""
+        prefix = "Daemon 'anta run' registrado no login do Windows.\n" if ok else ""
         return prefix + base
 
     if strategy == "compositor":

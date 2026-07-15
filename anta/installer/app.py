@@ -19,12 +19,12 @@ from textual.widgets import (
     Button, DataTable, Footer, Header, Label, RichLog, Select, Static,
 )
 
-from voz.core.config import (
+from anta.core.config import (
     UserConfig, load_modes, load_user_config, save_user_config,
 )
-from voz.installer.hardware import best_vram_gb, detect_gpus, status_for
-from voz.platform.detect import detect
-from voz.platform.hotkey import instructions_for, setup_hotkey
+from anta.installer.hardware import best_vram_gb, detect_gpus, status_for
+from anta.platform.detect import detect
+from anta.platform.hotkey import instructions_for, setup_hotkey
 
 _COLOR = {"verde": "green", "amarelo": "yellow", "vermelho": "red"}
 _MARK = {"verde": "OK", "amarelo": "apertado", "vermelho": "nao roda"}
@@ -61,14 +61,14 @@ class InstallerApp(App):
                          allow_blank=False)
             yield Button("Instalar modo selecionado", id="go", variant="success")
         env = detect()
-        yield Static(instructions_for(env, "python -m voz run"))
+        yield Static(instructions_for(env, "python -m anta run"))
         yield RichLog(id="log", markup=True, wrap=True)
         yield Footer()
 
     def _mic_options(self) -> list[tuple[str, str]]:
         options = [(_DEFAULT_MIC, _DEFAULT_MIC)]
         try:
-            from voz.core.capture import list_input_devices
+            from anta.core.capture import list_input_devices
 
             for d in list_input_devices():
                 name = d["name"]
@@ -145,7 +145,7 @@ class InstallerApp(App):
         # 2. Modelo STT (faster-whisper baixa no primeiro load)
         log(f"[b]Baixando modelo STT '{mode.stt}'[/] (faster-whisper, CPU int8)...")
         try:
-            from voz.core.stt import Transcriber
+            from anta.core.stt import Transcriber
 
             Transcriber(mode.stt).load()
             log("STT ok.")
@@ -169,7 +169,7 @@ class InstallerApp(App):
         # 5. Lembrete: manter o modelo quente
         log("[b]Dica:[/] setar OLLAMA_KEEP_ALIVE=-1 (ex.: no servico do ollama) "
             "mantem o LLM na VRAM e evita 5-10s de recarga por comando.")
-        log("[green]Instalacao concluida.[/] Rode: python -m voz run")
+        log("[green]Instalacao concluida.[/] Rode: python -m anta run")
         self.call_from_thread(self._enable_go)
 
     def _enable_go(self) -> None:

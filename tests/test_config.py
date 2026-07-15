@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from voz.core.config import (
+from anta.core.config import (
     UserConfig, load_modes, load_user_config, save_user_config,
 )
 
