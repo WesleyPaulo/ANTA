@@ -14,7 +14,14 @@ completo por ambiente.
 
 ## Linux — KDE Plasma (Wayland)
 O daemon `anta run` deve estar rodando (o instalador o adiciona ao autostart). O
-atalho e criado pelo proprio KDE e chama o `toggle`:
+atalho e criado pelo proprio KDE e chama o `toggle`.
+
+**Automatico:** o instalador tenta registrar o atalho para voce (via
+`kwriteconfig6`/`kglobalshortcutsrc` + um launcher `.desktop`). Quando funciona,
+o atalho passa a valer **no proximo login**. Se aparecer a mensagem de sucesso,
+confira em Configuracoes do Sistema → Atalhos e, se ja estiver la, pule o manual.
+
+**Manual (garantido):**
 
 1. Configuracoes do Sistema → **Atalhos**
 2. **Adicionar** → **Atalho de Comando/URL**
@@ -23,8 +30,8 @@ atalho e criado pelo proprio KDE e chama o `toggle`:
 5. Aplicar
 
 > O local onde o Plasma guarda atalhos de comando mudou do Plasma 5 para o 6,
-> por isso a automacao pode falhar entre versoes — este caminho manual e o mais
-> robusto.
+> por isso a automacao e best-effort — este caminho manual e o mais robusto e
+> continua sendo o fallback quando a automacao nao pega.
 
 ## Linux — X11 (GNOME, XFCE, etc.)
 O daemon `anta run` captura o atalho sozinho (pynput), sem precisar de atalho do

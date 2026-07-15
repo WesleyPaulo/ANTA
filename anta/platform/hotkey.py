@@ -12,6 +12,7 @@ manual (docs/atalhos.md) NAO e desistir — e o tier mais robusto.
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,8 +21,13 @@ from anta.platform.detect import Environment, detect
 
 
 def default_command() -> str:
-    """Prefixo do comando usando o interpretador atual (robusto em venv)."""
-    return f"{sys.executable} -m anta"
+    """Prefixo do comando usando o interpretador atual (robusto em venv).
+
+    O interpretador vem ASPADO: no autostart do Windows (HKCU\\...\\Run) e em
+    qualquer caminho com espacos (ex.: C:\\Users\\Nome Sobrenome\\...python.exe),
+    a string sem aspas quebra na execucao. Aspas sao validas tambem no Exec do
+    .desktop (Linux) e ao colar o comando no atalho do SO."""
+    return f'"{sys.executable}" -m anta'
 
 
 def _autostart_linux(command: str) -> bool:
@@ -70,7 +76,65 @@ def _kde_instructions(toggle_command: str) -> str:
     )
 
 
-def setup_hotkey(env: Environment | None = None, command: str | None = None) -> str:
+_KDE_KEYMAP = {
+    "ctrl": "Ctrl", "control": "Ctrl", "alt": "Alt", "shift": "Shift",
+    "meta": "Meta", "super": "Meta", "win": "Meta", "cmd": "Meta",
+    "space": "Space", "enter": "Return", "return": "Return", "tab": "Tab",
+    "esc": "Escape", "escape": "Escape",
+}
+
+
+def _kde_key(hotkey: str) -> str:
+    """'ctrl+alt+space' -> 'Ctrl+Alt+Space' (notacao de teclas do KDE)."""
+    parts = []
+    for raw in hotkey.split("+"):
+        tok = raw.strip().lower()
+        parts.append(_KDE_KEYMAP.get(tok, tok.upper() if len(tok) == 1 else tok.capitalize()))
+    return "+".join(parts)
+
+
+def _kde_launcher_desktop(toggle_command: str) -> str:
+    """Cria ~/.local/share/applications/anta-toggle.desktop e retorna o id."""
+    path = Path.home() / ".local" / "share" / "applications" / "anta-toggle.desktop"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=anta toggle\n"
+        f"Exec={toggle_command}\n"
+        "NoDisplay=true\n"
+        "X-KDE-GlobalAccel-CommandShortcut=true\n",
+        encoding="utf-8",
+    )
+    return "anta-toggle.desktop"
+
+
+def _kde_autoshortcut(toggle_command: str, hotkey: str) -> bool:
+    """Best-effort: registra o atalho global no KDE (Plasma 5/6) escrevendo em
+    kglobalshortcutsrc via kwriteconfig + um launcher .desktop. Retorna True so
+    se os comandos existirem e rodarem; qualquer falha -> False (o chamador cai
+    na instrucao manual, que continua sendo o caminho garantido). O atalho passa
+    a valer quando o kglobalaccel rele a config (proximo login)."""
+    writer = shutil.which("kwriteconfig6") or shutil.which("kwriteconfig5")
+    if writer is None:
+        return False
+    try:
+        desktop_id = _kde_launcher_desktop(toggle_command)
+        key = _kde_key(hotkey)
+        for cfg_key, value in (("_launch", f"{key},none,anta toggle"),
+                               ("_k_friendly_name", "anta toggle")):
+            subprocess.run(
+                [writer, "--file", "kglobalshortcutsrc",
+                 "--group", desktop_id, "--key", cfg_key, value],
+                capture_output=True, timeout=10, check=True,
+            )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return True
+
+
+def setup_hotkey(env: Environment | None = None, command: str | None = None,
+                 hotkey: str = "ctrl+alt+space") -> str:
     """Configura o atalho conforme o ambiente. Retorna instrucao para o usuario."""
     env = env or detect()
     command = command or default_command()
@@ -91,7 +155,11 @@ def setup_hotkey(env: Environment | None = None, command: str | None = None) -> 
 
     if strategy == "compositor":
         _autostart_linux(f"{command} run")  # mantem o modelo quente
-        return _kde_instructions(f"{command} toggle")
+        auto = _kde_autoshortcut(f"{command} toggle", hotkey)
+        prefix = (f"Atalho '{hotkey}' registrado no KDE (vale no proximo login). "
+                  "Se preferir configurar agora, ou se nao funcionar, use o manual:\n"
+                  if auto else "")
+        return prefix + _kde_instructions(f"{command} toggle")
 
     return instructions_for(env, f"{command} run")
 

@@ -28,7 +28,7 @@ class Environment:
         if self.os == "linux" and self.session == "x11":
             return "auto_x11"          # pynput GlobalHotKeys (in-process)
         if self.os == "linux" and self.session == "wayland":
-            return "compositor"        # KDE: kwriteconfig6 + fallback manual
+            return "compositor"        # KDE: tenta kwriteconfig6, cai no manual
         return "manual"                # macOS / desconhecido -> so documentacao
 
     @property
