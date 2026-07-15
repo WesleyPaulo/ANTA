@@ -25,8 +25,8 @@ O instalador detecta sua VRAM e recomenda o modo. Definidos em `modes.yaml`:
 | Modo | VRAM | LLM | STT |
 |------|------|-----|-----|
 | Leve | 4GB | qwen3:4b | large-v3-turbo |
-| Pesado | 8GB | qwen3.5:9b | large-v3 |
-| Ultra Esforco | 12GB | qwen3.5:14b | large-v3 |
+| Pesado | 8GB | qwen3:8b | large-v3 |
+| Ultra Esforco | 12GB | qwen3:14b | large-v3 |
 
 Adicionar um tier = um bloco novo no `modes.yaml`. O instalador nao muda.
 
@@ -40,8 +40,10 @@ Adicionar um tier = um bloco novo no `modes.yaml`. O instalador nao muda.
 - **LLM**: [Ollama](https://ollama.com) servindo a API compativel com OpenAI.
 - **Saida estruturada**: `instructor` + `pydantic` (conjunto fechado de acoes).
 - **Documentos**: `pandoc` (Markdown → docx/pdf).
-- **Atalho global**: automatico no Windows e Linux/X11; no Wayland/KDE via
-  compositor, com fallback documentado.
+- **Voz (TTS)**: `piper-tts` — voz PT-BR local, reproduzida pelo `sounddevice`
+  (opcional, so quando `tts = true`).
+- **Atalho global**: automatico no Windows e Linux/X11; no Wayland/KDE o
+  instalador tenta configurar via compositor, com fallback manual documentado.
 
 Externos (nao via pip): **Ollama** e **pandoc**.
 
@@ -88,7 +90,9 @@ docs/atalhos.md instrucoes de atalho por sistema
 ## Roadmap
 
 - v0.1: MVP mic-only, Linux, instalador cross-platform, 3 modos.
-- v0.2: automacao de atalho no Wayland; Windows runtime; TTS (Piper).
+- v0.2 (atual): TTS por voz (Piper, PT-BR); automacao best-effort do atalho no
+  Wayland/KDE (com fallback manual); runtime Windows validado; correcoes
+  cross-platform (mic por nome, tags de modelo, keep-alive no boot).
 - v0.3: modo reuniao (audio do sistema via PipeWire/WASAPI); RAG sobre notas.
 
 ## Licenca

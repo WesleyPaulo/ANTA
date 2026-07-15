@@ -16,7 +16,10 @@ uma restricao real de hardware (GPU de 8GB).
 3. **MVP = so microfone.** Nao implemente captura de audio do sistema, sink
    virtual ou loopback. Um unico caminho de codigo (`sounddevice`) nos dois SOs.
 4. **Device de audio por NOME, nao por indice/default.** Persistir o nome.
-5. **Modelo sempre quente.** Setar `OLLAMA_KEEP_ALIVE` (documentar no instalador).
+5. **Modelo sempre quente.** `Brain.warm()` fixa o LLM na VRAM no boot com um
+   preload `keep_alive=-1` no endpoint nativo do Ollama (o endpoint OpenAI-compat
+   nao aceita `keep_alive`); setar `OLLAMA_KEEP_ALIVE=-1` no servico persiste
+   entre reinicios (documentar no instalador).
 6. **Modos sao declarativos.** Toda escolha de modelo sai de `modes.yaml`.
 
 ## Mapa dos modulos
@@ -40,13 +43,24 @@ uma restricao real de hardware (GPU de 8GB).
 - `Brain.decide(texto) -> Decisao` via `instructor.from_openai(OpenAI(
   base_url="http://localhost:11434/v1", api_key="ollama"))`, `response_model=Decisao`,
   `temperature=0.1`, `model=self.llm`.
+- `Brain.warm()` faz o preload `keep_alive=-1` (principio 5); chamado por `Pipeline.warm()`.
+
+### 4.5 TTS — `anta/core/tts.py`
+- `speak(texto, voice_path, output_device)`: sintetiza via `PiperVoice.synthesize`
+  (API Python do `piper-tts`) e reproduz o PCM pelo `sounddevice` (mesmo backend
+  da captura). Best-effort: no-op silencioso se o piper ou a voz nao existirem.
+- `ensure_voice(nome, dest)`: baixa a voz `.onnx` (+ `.onnx.json`) do HuggingFace
+  se faltar. O instalador chama quando o usuario liga o TTS.
+- Fica no `core` (nao em `actions/helpers.py`, que e folha stdlib-only) porque
+  precisa de `sounddevice`/`numpy`/`piper`. O onnxruntime roda na CPU (nao viola
+  o principio 1: a VRAM segue exclusiva do LLM) e so e importado ao falar.
 
 ### 5. Executor — `anta/actions/` (fachada + handlers)
 - `executor.py` e uma fachada fina: `execute(decisao, ctx)` despacha via
   `registry.HANDLERS` (mapa explicito tipo-de-acao -> handler; sem decorator/magia).
 - Um arquivo por acao em `handlers/`, com `handle(acao, ctx) -> str`.
   `criar_documento` converte via `pandoc` quando `formato != "md"`; `responder`
-  fala via Piper se `ctx.tts`.
+  fala via `anta/core/tts.speak` (Piper) se `ctx.tts`.
 - `apps.py`: whitelist de `abrir_app` isolada (`lookup`/`permitidos`).
   `context.py`: `ExecContext` + constantes. `helpers.py`: `slug`/`unique_path`/`speak`.
 - Adicionar acao = classe no schema + arquivo em `handlers/` + 1 linha em `HANDLERS`
@@ -79,11 +93,15 @@ uma restricao real de hardware (GPU de 8GB).
   - `manual`: so instrucao.
 
 ## Testes
-Suite em `tests/` (37 testes, `unittest` stdlib):
+Suite em `tests/` (`unittest` stdlib):
 `.venv/bin/python -m unittest discover -s tests`. Cobrem: `hardware.status_for`
 (limites), `config.load_modes` + round-trip da config, `detect.hotkey_strategy`
-(mock de env), schema (uniao discriminada por acao), executor (cada handler) e
-whitelist + exaustividade do registro (`tests/test_apps.py`).
+(mock de env), schema (uniao discriminada por acao), executor (cada handler),
+whitelist + exaustividade do registro (`tests/test_apps.py`), resolucao de mic
+por nome (`test_capture.py`), guards do TTS + `_resolve_output` (`test_tts.py`) e
+a camada de atalho: quoting, `_kde_key`, automacao KDE best-effort com fallback
+manual (`test_hotkey.py`). Testes de I/O usam um `sounddevice` falso via
+`sys.modules` — nao dependem de PortAudio/piper reais.
 
 ## Nao-metas do MVP
 - Audio do sistema / reuniao. RAG. Modo conversacional em tempo real.

@@ -53,7 +53,9 @@ outra ação.
 
 > *"Como se escreve 'apprentice' em inglês?"* · *"me dá 3 nomes pra um projeto de voz"*
 
-Uso: Q&A rápido e privado, 100% offline.
+Uso: Q&A rápido e privado, 100% offline. Para ouvir a resposta em voz, marque
+**"Falar respostas (TTS)"** no instalador (baixa uma voz PT-BR do Piper) ou
+ligue `tts = true` no `config.toml`.
 
 ## Cenários combinados (o valor no dia a dia)
 
@@ -69,8 +71,8 @@ Uso: Q&A rápido e privado, 100% offline.
 | Modo | VRAM | Perfil |
 |------|------|--------|
 | Leve | 4GB | comandos rápidos e notas curtas (`qwen3:4b` + Whisper `turbo`) |
-| Pesado | 8GB | documentos e PT-BR preciso (`qwen3.5:9b` + `large-v3`) |
-| Ultra | 12GB | máxima qualidade (`qwen3.5:14b`) |
+| Pesado | 8GB | documentos e PT-BR preciso (`qwen3:8b` + `large-v3`) |
+| Ultra | 12GB | máxima qualidade (`qwen3:14b`) |
 
 ## Fronteiras — o que **não** é caso de uso hoje
 
@@ -85,7 +87,7 @@ Uso: Q&A rápido e privado, 100% offline.
 | SO | Status |
 |----|--------|
 | **Linux** | Alvo **testado**. |
-| **Windows** | **Implementado, não testado** — o código trata detecção, VRAM (via NVIDIA, o caso comum no Windows), atalho (`pynput` + autostart no registro), config em `%APPDATA%` e a whitelist. Deve rodar numa máquina Windows+NVIDIA. |
+| **Windows** | **Implementado, não testado** — o código trata detecção, VRAM (via NVIDIA, o caso comum no Windows), atalho (`pynput` + autostart no registro, agora com o interpretador entre aspas), config em `%APPDATA%` e a whitelist. Deve rodar numa máquina Windows+NVIDIA. Checklist de validação em [docs/windows.md](windows.md). |
 | **macOS** | **Não suportado** — o gating de modo por VRAM assume GPU NVIDIA e bloqueia o instalador em Apple Silicon; o atalho é só manual. |
 
 No WSL2 o microfone é instável, então o teste real do loop de voz pede Linux/Windows nativo.
