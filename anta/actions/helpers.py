@@ -29,6 +29,11 @@ def unique_path(directory: Path, stem: str, ext: str) -> Path:
     return p
 
 
+def note_body(titulo: str, conteudo: str) -> str:
+    """Corpo Markdown de uma nota/documento (a unica formatacao compartilhada)."""
+    return f"# {titulo}\n\n{conteudo}\n"
+
+
 def speak(texto: str) -> None:
     """TTS best-effort via Piper. No-op silencioso se Piper nao existir."""
     if shutil.which("piper") is None:
