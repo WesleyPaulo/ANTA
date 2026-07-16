@@ -31,6 +31,7 @@ class ExecContext:
     rag: "RAG | None" = None
     answer: "Callable[[str, str], str] | None" = None       # (pergunta, contexto) -> resposta
     summarize: "Callable[[str, str], str] | None" = None    # (periodo, material) -> resumo
+    web_search: "Callable[[str], list] | None" = None       # (consulta) -> [Result]; None = web off
 
     @classmethod
     def from_config(cls, obsidian_vault: str | None, tts: bool = False,

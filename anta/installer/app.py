@@ -189,6 +189,9 @@ class InstallerApp(App):
             tts_voice=tts_voice,
             tts_output=self._cfg.tts_output,
             rag=self._cfg.rag,
+            web=self._cfg.web,
+            web_engine=self._cfg.web_engine,
+            web_searxng_url=self._cfg.web_searxng_url,
         )
         path = save_user_config(cfg)
         log(f"Config salva em {path}")

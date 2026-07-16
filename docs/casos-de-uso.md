@@ -93,10 +93,24 @@ consultar resumos antigos depois). Janelas: dia = hoje, semana = 7 dias, mês = 
 
 Uso: fechamento de dia/semana, relatório de atividade mãos-livres, retomar o fio depois.
 
+### 9. Buscar na web — `buscar_web` (OPT-IN, novo na v0.3)
+Busca na internet e o LLM sintetiza a resposta com as fontes. **Rompe o offline** — por
+isso é desligado por padrão (`web = false`). Ligue com `web = true` no `config.toml`.
+Backend keyless por padrão (DuckDuckGo, sem chave); ou aponte uma instância **SearXNG**
+(`web_engine = "searxng"` + `web_searxng_url`). Só é acionado por pedido explícito de
+busca ou pergunta que exige a internet.
+
+> *"Pesquisa na web quem ganhou o jogo ontem"* · *"procura na internet o preço do dólar hoje"*
+> → busca → o LLM responde citando as fontes
+
+Uso: informação atual/factual que o modelo local não tem. Quem não ligar segue 100%
+offline — nada de web sem opt-in.
+
 ## Cenários combinados (o valor no dia a dia)
 
 - **Trabalho privado/offline:** nada de áudio ou texto sai da máquina — bom pra
-  dados sensíveis (jurídico, saúde, pesquisa) ou pra quem quer zero nuvem.
+  dados sensíveis (jurídico, saúde, pesquisa) ou pra quem quer zero nuvem. (A única
+  exceção é a busca web, que é **opt-in** e desligada por padrão.)
 - **PKM no Obsidian:** notas e documentos caem como `.md` no vault; depois
   *"abre o obsidian"* pra revisar.
 - **Acessibilidade / mãos-livres:** ditar em vez de digitar.

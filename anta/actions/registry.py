@@ -14,12 +14,12 @@ from typing import Callable
 
 from anta.actions.context import ExecContext
 from anta.actions.handlers import (
-    abrir_app, adicionar_tarefa, consultar, criar_documento, criar_nota, lembrar,
-    responder, resumir,
+    abrir_app, adicionar_tarefa, buscar_web, consultar, criar_documento, criar_nota,
+    lembrar, responder, resumir,
 )
 from anta.actions.schema import (
-    Acao, AbrirApp, AdicionarTarefa, Consultar, CriarDocumento, CriarNota, Lembrar,
-    Responder, Resumir,
+    Acao, AbrirApp, AdicionarTarefa, BuscarWeb, Consultar, CriarDocumento, CriarNota,
+    Lembrar, Responder, Resumir,
 )
 
 Handler = Callable[[Acao, ExecContext], str]
@@ -33,4 +33,5 @@ HANDLERS: dict[type, Handler] = {
     Lembrar: lembrar.handle,
     Consultar: consultar.handle,
     Resumir: resumir.handle,
+    BuscarWeb: buscar_web.handle,
 }

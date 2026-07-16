@@ -30,6 +30,9 @@ class Pipeline:
         tts_voice: str | None = None,
         tts_output: str | None = None,
         rag: bool = False,
+        web: bool = False,
+        web_engine: str = "duckduckgo",
+        web_searxng_url: str | None = None,
     ) -> None:
         self.transcriber = Transcriber(stt_key)
         self.brain = Brain(llm)
@@ -43,6 +46,11 @@ class Pipeline:
         self.ctx.rag = self.rag
         self.ctx.answer = self.brain.answer
         self.ctx.summarize = self.brain.summarize
+        if web:  # OPT-IN: rompe o offline; so entao ligamos o buscador
+            from anta.core import websearch
+
+            self.ctx.web_search = lambda q: websearch.search(
+                q, engine=web_engine, searxng_url=web_searxng_url)
         self._history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
 
     def warm(self) -> None:

@@ -59,9 +59,15 @@ class Resumir(BaseModel):
     periodo: Literal["dia", "semana", "mes"] = "dia"  # janela de tempo do resumo
 
 
+class BuscarWeb(BaseModel):
+    # OPT-IN (so quando web=true): busca na internet. Rompe o offline da ANTA.
+    acao: Literal["buscar_web"] = "buscar_web"
+    consulta: str  # o que buscar na web
+
+
 Acao = Union[
     CriarNota, CriarDocumento, AdicionarTarefa, AbrirApp, Responder, Lembrar, Consultar,
-    Resumir,
+    Resumir, BuscarWeb,
 ]
 
 

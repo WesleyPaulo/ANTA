@@ -101,7 +101,8 @@ def run() -> None:
         stt_key=mode.stt, llm=mode.llm,
         obsidian_vault=cfg.obsidian_vault, tts=cfg.tts,
         tts_voice=cfg.tts_voice, tts_output=cfg.tts_output,
-        rag=cfg.rag,
+        rag=cfg.rag, web=cfg.web, web_engine=cfg.web_engine,
+        web_searxng_url=cfg.web_searxng_url,
     )
     try:
         pipeline.warm()

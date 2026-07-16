@@ -38,8 +38,11 @@ DECIDE = (
     "fiz hoje', 'resumo da semana', 'o que produzi esse mes'). Regra de desempate: se o "
     "pedido tem um ASSUNTO/tema (um 'sobre o que'), e consultar; se tem so um PERIODO de "
     "tempo, e resumir. Periodo: dia, semana ou mes.\n"
+    "- buscar_web: SOMENTE quando o usuario pede busca na internet ('pesquisa na web', "
+    "'procura na internet', 'busca online') ou pergunta algo atual que exige a internet "
+    "(noticias de hoje, cotacao, placar). Conhecimento geral que voce ja sabe -> responder.\n"
     "- responder: perguntas gerais, conversa, resumo de conhecimento do mundo (nao das suas "
-    "notas), ou o que nao se encaixa acima. E o padrao.\n"
+    "notas nem da web), ou o que nao se encaixa acima. E o padrao.\n"
     "Campo memoria (opcional, separado da acao): preencha SO com um fato duravel e "
     "reutilizavel sobre o usuario (preferencia, nome, fato pessoal, decisao); senao, null. "
     "Nunca repita o comando, e nunca use memoria junto da acao lembrar.\n"
@@ -52,15 +55,17 @@ DECIDE = (
     "- 'me faz um resumo do que tenho sobre o projeto X' -> consultar(pergunta='resumo das "
     "notas sobre o projeto X')   [tem assunto -> consultar, nao resumir]\n"
     "- 'me resume o que eu fiz essa semana' -> resumir(periodo='semana')   [so periodo]\n"
+    "- 'pesquisa na web quem ganhou o jogo ontem' -> buscar_web(consulta='quem ganhou o "
+    "jogo ontem')\n"
     "- 'abre o obsidian' -> abrir_app(nome='obsidian')\n"
     "- 'quanto e 15% de 200?' -> responder(texto='30')"
 )
 
-# Resposta ancorada de uma consulta RAG.
+# Resposta ancorada (consulta RAG nas notas OU busca na web).
 ANSWER = (
-    "Responda a pergunta do usuario usando SOMENTE o contexto fornecido (trechos das "
-    "notas dele). Se o contexto nao contiver a resposta, diga que nao encontrou nas notas "
-    "— nao invente. Seja curto e direto."
+    "Responda a pergunta do usuario usando SOMENTE o contexto fornecido (trechos das notas "
+    "dele ou resultados de uma busca). Se o contexto nao contiver a resposta, diga que nao "
+    "encontrou — nao invente. Seja curto e direto."
 )
 
 # Sintese de um resumo de atividade.

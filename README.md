@@ -12,7 +12,8 @@ voce ("lembre que prefiro docx", ou automaticamente na conversa), responde pergu
 sobre as suas proprias notas ("o que anotei sobre o projeto?") via busca semantica no
 vault, e faz resumos do que voce produziu ("resumo da semana" -> salvo em `resumos/`). O
 embedding roda **na CPU** — a VRAM segue exclusiva do LLM. Os prompts (persona/tom/regras)
-sao editaveis em `prompts.toml`, sem tocar no codigo.
+sao editaveis em `prompts.toml`, sem tocar no codigo. Ha tambem uma **busca na web opt-in**
+(`web = true`, desligada por padrao pra manter o offline) que responde citando as fontes.
 
 ## Como funciona
 
@@ -51,6 +52,8 @@ Adicionar um tier = um bloco novo no `modes.yaml`. O instalador nao muda.
   (opcional, so quando `tts = true`).
 - **Memoria + RAG**: `fastembed` (onnxruntime) — embedding multilingue **na CPU**;
   store por cosseno em `numpy` (sem faiss/chroma). Opcional, so quando `rag = true`.
+- **Busca na web (opt-in)**: `ddgs` (DuckDuckGo, keyless) ou SearXNG (JSON, stdlib).
+  Desligada por padrao (`web = false`) pra preservar o offline; so quando `web = true`.
 - **Atalho global**: automatico no Windows e Linux/X11; no Wayland/KDE o
   instalador tenta configurar via compositor, com fallback manual documentado.
 
@@ -88,9 +91,9 @@ python -m anta run        # roda o assistente (apos configurar)
 ```
 anta/
   installer/   TUI Textual + deteccao de VRAM (hardware.py)
-  core/        capture · stt · brain · pipeline · config · rag (memoria/busca) · prompts
+  core/        capture · stt · brain · pipeline · config · rag · prompts · websearch
   actions/     schema Pydantic · executor (fachada) · registry · apps (whitelist)
-    handlers/  um arquivo por acao (criar_nota, ..., lembrar, consultar, resumir)
+    handlers/  um arquivo por acao (criar_nota, ..., consultar, resumir, buscar_web)
   platform/    detect (SO/sessao) · hotkey (atalho por SO)
 modes.yaml     manifesto dos modos
 docs/atalhos.md instrucoes de atalho por sistema
@@ -102,9 +105,10 @@ docs/atalhos.md instrucoes de atalho por sistema
 - v0.2: TTS por voz (Piper, PT-BR); automacao best-effort do atalho no
   Wayland/KDE (com fallback manual); runtime Windows validado; correcoes
   cross-platform (mic por nome, tags de modelo, keep-alive no boot).
-- v0.3 (atual): **memoria + RAG + resumos + prompts editaveis** — busca semantica nas
-  notas (`consultar`), memoria automatica + explicita (`lembrar`), resumos de atividade
-  dia/semana/mes (`resumir`), continuidade de conversa na sessao; embedding na CPU via
+- v0.3 (atual): **memoria + RAG + resumos + prompts editaveis + busca web opt-in** —
+  busca semantica nas notas (`consultar`), memoria automatica + explicita (`lembrar`),
+  resumos de atividade dia/semana/mes (`resumir`), busca na internet opcional
+  (`buscar_web`, `web=true`), continuidade de conversa na sessao; embedding na CPU via
   `fastembed` (VRAM intacta); prompts (persona/tom/regras) em `prompts.toml` editavel.
 - v0.4: modo reuniao (audio do sistema via PipeWire/WASAPI).
 

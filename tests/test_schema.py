@@ -3,8 +3,8 @@ uniao discriminada 'Decisao' desserializa cada tipo de acao corretamente."""
 import unittest
 
 from anta.actions.schema import (
-    AbrirApp, AdicionarTarefa, Consultar, CriarDocumento, CriarNota, Decisao,
-    Lembrar, Responder, Resumir,
+    AbrirApp, AdicionarTarefa, BuscarWeb, Consultar, CriarDocumento, CriarNota,
+    Decisao, Lembrar, Responder, Resumir,
 )
 
 
@@ -61,6 +61,12 @@ class TestDecisaoDiscriminada(unittest.TestCase):
     def test_resumir_periodo_invalido_rejeitado(self):
         with self.assertRaises(Exception):
             Decisao.model_validate({"escolha": {"acao": "resumir", "periodo": "ano"}})
+
+    def test_buscar_web(self):
+        d = Decisao.model_validate(
+            {"escolha": {"acao": "buscar_web", "consulta": "noticias de hoje"}})
+        self.assertIsInstance(d.escolha, BuscarWeb)
+        self.assertEqual(d.escolha.consulta, "noticias de hoje")
 
     def test_acao_invalida_rejeitada(self):
         with self.assertRaises(Exception):

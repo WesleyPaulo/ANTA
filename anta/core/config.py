@@ -48,6 +48,9 @@ class UserConfig:
     tts_voice: str | None = None       # caminho do .onnx; None = voz padrao baixada
     tts_output: str | None = None      # NOME do device de saida; None = padrao
     rag: bool = True                   # busca/memoria em notas (RAG na CPU via fastembed)
+    web: bool = False                  # OPT-IN: busca na web (rompe o offline!) default off
+    web_engine: str = "duckduckgo"     # duckduckgo (keyless) | searxng
+    web_searxng_url: str | None = None # URL da instancia SearXNG (se web_engine=searxng)
 
     def mode_or_default(self, modes: list[Mode]) -> Mode:
         """Resolve o Mode correspondente, caindo no mais leve se o nome sumir."""
@@ -89,6 +92,9 @@ def load_user_config(path: str | Path | None = None) -> UserConfig:
         tts_voice=_clean(data.get("tts_voice", "")),
         tts_output=_clean(data.get("tts_output", "")),
         rag=bool(data.get("rag", True)),  # ausente (config antiga) -> ligado
+        web=bool(data.get("web", False)),  # ausente -> desligado (offline por padrao)
+        web_engine=str(data.get("web_engine") or "duckduckgo"),  # str(): tolera TOML malformado
+        web_searxng_url=_clean(data.get("web_searxng_url", "")),
     )
 
 
@@ -112,6 +118,9 @@ def save_user_config(cfg: UserConfig, path: str | Path | None = None) -> Path:
         f"tts_voice = {_toml_str(cfg.tts_voice or '')}",
         f"tts_output = {_toml_str(cfg.tts_output or '')}",
         f"rag = {'true' if cfg.rag else 'false'}",
+        f"web = {'true' if cfg.web else 'false'}",
+        f"web_engine = {_toml_str(cfg.web_engine or 'duckduckgo')}",
+        f"web_searxng_url = {_toml_str(cfg.web_searxng_url or '')}",
         "",
     ]
     p.write_text("\n".join(lines), encoding="utf-8")

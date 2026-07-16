@@ -7,3 +7,6 @@ tts = false                   # true = responder tambem por voz (Piper)
 tts_voice = ""                # caminho do .onnx da voz (vazio = voz PT-BR padrao)
 tts_output = ""               # NOME do device de saida de audio (vazio = padrao)
 rag = true                    # false = desliga busca/memoria em notas (RAG na CPU)
+web = false                   # OPT-IN: true = busca na web (ROMPE o offline!) default off
+web_engine = "duckduckgo"     # duckduckgo (sem chave) | searxng
+web_searxng_url = ""          # URL da instancia SearXNG (se web_engine = "searxng")

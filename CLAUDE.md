@@ -91,6 +91,17 @@ uma restricao real de hardware (GPU de 8GB).
   `helpers.write_summary_note` salva em `<vault>/resumos/`. O `Index._scan` inclui
   `resumos/`, entao resumos ficam pesquisaveis pelo RAG.
 
+### 4.7 Busca na web — `anta/core/websearch.py` (v0.3, OPT-IN)
+- **Rompe o offline** (a query vai para um buscador), por isso e desligado por padrao
+  (`web=false`). NAO e o comportamento default da ANTA — e uma excecao consciente.
+- `search(query, engine, searxng_url)` -> `[Result]` best-effort (falha -> `[]`): DuckDuckGo
+  keyless via `ddgs` (import preguicoso, dep opcional) ou SearXNG (JSON, so stdlib). So LE
+  resultados; a sintese e do LLM.
+- Acao `BuscarWeb(consulta)` -> `handlers/buscar_web.py`: se `ctx.web_search is None` (web
+  off) responde que esta desativado; senao busca, sintetiza via `ctx.answer` (mesmo prompt
+  do RAG, generalizado p/ "notas ou busca") e anexa as fontes. O Pipeline so injeta
+  `ctx.web_search` quando `web=true`. Config: `web`, `web_engine`, `web_searxng_url`.
+
 ### 5. Executor — `anta/actions/` (fachada + handlers)
 - `executor.py` e uma fachada fina: `execute(decisao, ctx)` despacha via
   `registry.HANDLERS` (mapa explicito tipo-de-acao -> handler; sem decorator/magia).
@@ -151,9 +162,10 @@ cosseno, `reconcile` incremental, persistencia, prefixo e5, frescura no query �
 `test_rag.py`), `Brain` com clients falsos (strip `<think>`, history/persona no prompt,
 `summarize` — `test_brain.py`), o wiring do `Pipeline` (canal de memoria automatico +
 best-effort, guard anti-duplicata, janela de conversa — `test_pipeline.py`), os prompts
-editaveis (overlay/round-trip — `test_prompts.py`) e os helpers do resumo (janelas +
-`gather_activity` por mtime/timestamp — `test_helpers.py`). Testes de I/O usam fakes via
-`sys.modules`/injecao — nao dependem de PortAudio/piper/fastembed/Ollama reais.
+editaveis (overlay/round-trip — `test_prompts.py`), os helpers do resumo (janelas +
+`gather_activity` por mtime/timestamp — `test_helpers.py`) e a busca web (DDG via `ddgs`
+falso + SearXNG via `urlopen` mockado, best-effort — `test_websearch.py`). Testes de I/O
+usam fakes via `sys.modules`/injecao — nao dependem de PortAudio/piper/fastembed/ddgs/rede.
 
 ## Nao-metas do MVP
 - Audio do sistema / reuniao. Modo conversacional em tempo real (streaming).

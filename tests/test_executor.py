@@ -4,9 +4,10 @@ from pathlib import Path
 
 from anta.actions.executor import ExecContext, execute
 from anta.actions.schema import (
-    AbrirApp, AdicionarTarefa, Consultar, CriarDocumento, CriarNota, Decisao,
-    Lembrar, Responder, Resumir,
+    AbrirApp, AdicionarTarefa, BuscarWeb, Consultar, CriarDocumento, CriarNota,
+    Decisao, Lembrar, Responder, Resumir,
 )
+from anta.core.websearch import Result
 
 
 def _dec(acao):
@@ -137,6 +138,35 @@ class TestExecutor(unittest.TestCase):
         self.assertIn("Nao ha nada registrado", msg)
         self.assertEqual(chamou, [])
         self.assertFalse((Path(self._tmp.name) / "resumos").exists())
+
+    def test_buscar_web_desativado(self):
+        ctx = ExecContext(vault=Path(self._tmp.name), web_search=None)  # web off
+        msg = execute(_dec(BuscarWeb(consulta="x")), ctx)
+        self.assertIn("desativada", msg.lower())
+
+    def test_buscar_web_sem_resultado(self):
+        chamou = []
+        ctx = ExecContext(vault=Path(self._tmp.name), web_search=lambda q: [],
+                          answer=lambda p, c: chamou.append(1) or "x")
+        msg = execute(_dec(BuscarWeb(consulta="nada")), ctx)
+        self.assertIn("Nao consegui buscar", msg)
+        self.assertEqual(chamou, [])  # sem resultado => nem chama o LLM
+
+    def test_buscar_web_sintetiza_com_fontes(self):
+        resultados = [Result("Titulo", "trecho relevante", "http://exemplo.com/a"),
+                      Result("T2", "outro", "http://exemplo.com/b")]
+        captura = {}
+
+        def fake_answer(pergunta, contexto):
+            captura["contexto"] = contexto
+            return "A resposta sintetizada."
+
+        ctx = ExecContext(vault=Path(self._tmp.name),
+                          web_search=lambda q: resultados, answer=fake_answer)
+        msg = execute(_dec(BuscarWeb(consulta="pergunta")), ctx)
+        self.assertIn("A resposta sintetizada.", msg)
+        self.assertIn("Fontes: http://exemplo.com/a", msg)   # rodape com as URLs
+        self.assertIn("trecho relevante", captura["contexto"])  # contexto = resultados
 
 
 if __name__ == "__main__":
