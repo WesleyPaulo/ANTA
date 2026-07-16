@@ -33,9 +33,10 @@ class Pipeline:
         web: bool = False,
         web_engine: str = "duckduckgo",
         web_searxng_url: str | None = None,
+        structured: str = "tools",
     ) -> None:
         self.transcriber = Transcriber(stt_key)
-        self.brain = Brain(llm)
+        self.brain = Brain(llm, structured=structured)
         self.ctx = ExecContext.from_config(obsidian_vault, tts, tts_voice, tts_output)
         self.rag = None
         if rag:

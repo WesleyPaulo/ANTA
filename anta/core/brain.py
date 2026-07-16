@@ -21,8 +21,16 @@ OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
 
 def _strip_think(txt: str) -> str:
-    """Remove blocos <think>...</think> (qwen3 pode vazar raciocinio no content)."""
+    """Remove blocos <think>...</think> (qwen3/deepseek-r1 vazam raciocinio no content)."""
     return re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL)
+
+
+def _instructor_mode(structured: str):
+    """Mapeia o `structured` do modo para o Mode do instructor. 'json' para familias sem
+    tool-calling nativo (Gemma, DeepSeek); 'tools' (default) para Qwen3/Llama/etc."""
+    import instructor
+
+    return instructor.Mode.JSON if structured == "json" else instructor.Mode.TOOLS
 
 
 class Brain:
@@ -34,11 +42,13 @@ class Brain:
     """
 
     def __init__(self, llm: str, base_url: str = OLLAMA_BASE_URL,
-                 timeout: float = 60.0, prompts: Prompts | None = None) -> None:
+                 timeout: float = 60.0, prompts: Prompts | None = None,
+                 structured: str = "tools") -> None:
         self.llm = llm
         self.base_url = base_url
         self.timeout = timeout  # evita o daemon single-thread travar se o Ollama pendurar
         self.prompts = prompts or load_prompts()
+        self.structured = structured  # tools | json (vem do modo/familia)
         self._client = None      # instructor-patched (decide)
         self._raw_client = None  # OpenAI cru (answer/summarize)
 
@@ -48,7 +58,8 @@ class Brain:
             from openai import OpenAI
 
             self._client = instructor.from_openai(
-                OpenAI(base_url=self.base_url, api_key="ollama", timeout=self.timeout)
+                OpenAI(base_url=self.base_url, api_key="ollama", timeout=self.timeout),
+                mode=_instructor_mode(self.structured),
             )
         return self._client
 

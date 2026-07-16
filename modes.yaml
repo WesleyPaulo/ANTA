@@ -1,67 +1,86 @@
 # modes.yaml — o coração do projeto.
-# Cada modo é uma entrada declarativa. O instalador lê este arquivo,
-# detecta a VRAM da máquina e recomenda/bloqueia modos com base em `vram_gb`.
-# Adicionar um novo tier = adicionar um bloco aqui. Nenhum código muda.
+# Estrutura: `tiers` (compartilhados) × `families` (open-source). O usuário escolhe uma
+# FAMÍLIA e depois um MODO (tier). Adicionar família = um bloco em `families`; adicionar
+# tier = um bloco em `tiers`. Nenhum código muda.
 #
-# vram_gb   = GATE: card mínimo recomendado (o instalador libera/bloqueia por ele).
-# vram_real = consumo ESTIMADO do LLM já carregado (Ollama Q4_K_M padrão, ctx ~4k).
-#             STT e embedder (RAG) rodam na CPU e NÃO contam aqui (Princípio 1).
-#             É estimativa — meça na sua máquina com `ollama ps` / `nvidia-smi`.
-#             O gate deixa folga sobre o vram_real p/ KV cache maior + VRAM do desktop.
+# tiers      = gate (vram_gb) + STT + descrição do PERFIL de uso (igual em toda família).
+#   vram_gb  = GATE: card mínimo recomendado (o instalador libera/bloqueia por ele).
+# families   = cada família só troca o modelo por tier + o modo de saída estruturada.
+#   structured = "tools" (function-calling) | "json". Famílias SEM tool-calling nativo
+#                (Gemma, DeepSeek) precisam de "json"; Qwen3/Llama usam "tools".
+#   vram_real  = consumo ESTIMADO do LLM já carregado (Ollama Q4_K_M). STT/embedder são
+#                CPU e NÃO contam (Princípio 1). Meça com `ollama ps` / `nvidia-smi`.
+# Uma família pode OMITIR um tier (ex.: DeepSeek não tem 'batata': nada cabe em 1GB).
 
-modes:
+tiers:
   batata:
-    label: "Modo Batata"
+    label: "Batata"
     vram_gb: 1
-    vram_real: "~0.7-1 GB"
-    llm: "qwen3:0.6b"        # ~0.5GB em Q4_K_M; roda em quase qualquer GPU
-    stt: "base"              # Whisper leve p/ CPU fraca (menos preciso em PT-BR)
-    description: "Roda quase em qualquer GPU (1GB). Modelo minusculo: o roteamento das acoes erra mais."
-
+    stt: "base"
+    description: "Roda em quase qualquer GPU (1GB). Modelo minusculo: o roteamento erra mais."
   ultra-leve:
-    label: "Modo Ultra Leve"
+    label: "Ultra Leve"
     vram_gb: 2
-    vram_real: "~1.5-1.8 GB"
-    llm: "qwen3:1.7b"        # ~1.3GB em Q4_K_M
-    stt: "small"             # Whisper pequeno (bom equilibrio em CPU modesta)
-    description: "Bem leve (2GB). Comandos simples; qualidade abaixo do Leve."
-
+    stt: "small"
+    description: "Bem leve (2GB). Comandos simples."
   leve:
-    label: "Modo Leve"
+    label: "Leve"
     vram_gb: 4
-    vram_real: "~3.3-3.6 GB"
-    llm: "qwen3:4b"          # ~2.5GB em Q4_K_M
-    stt: "turbo"             # faster-whisper: large-v3-turbo (int8, CPU) — rapido
-    description: "Comandos rápidos e notas curtas. Roda folgado em 4GB+."
-
+    stt: "turbo"             # faster-whisper large-v3-turbo (int8, CPU) — rapido
+    description: "Comandos rapidos e notas curtas. STT rapido."
   normal:
-    label: "Modo Normal"
+    label: "Normal"
     vram_gb: 6
-    vram_real: "~3.3-3.6 GB"
-    llm: "qwen3:4b"          # mesmo LLM do Leve; a folga de 6GB e p/ STT melhor + contexto
-    stt: "large-v3"          # transcricao PT-BR mais precisa (mais pesada na CPU)
-    description: "Como o Leve, mas com STT large-v3 (PT-BR mais preciso). Folga de VRAM em 6GB."
-
+    stt: "large-v3"
+    description: "Uso geral com STT large-v3 (PT-BR mais preciso)."
   pesado:
-    label: "Modo Pesado"
+    label: "Pesado"
     vram_gb: 8
-    vram_real: "~6-6.5 GB"
-    llm: "qwen3:8b"          # ~5.2GB em Q4_K_M; cabe folgado em 8GB (STT fica na CPU)
     stt: "large-v3"
-    description: "Geração de documentos e transcrição precisa em PT-BR. 8GB+."
-
+    description: "Geracao de documentos e transcricao precisa em PT-BR."
   muito-pesado:
-    label: "Modo Muito Pesado"
+    label: "Muito Pesado"
     vram_gb: 10
-    vram_real: "~6-6.5 GB"
-    llm: "qwen3:8b"          # mesmo 8b do Pesado, com folga total em 10GB
     stt: "large-v3"
-    description: "8b com folga total em 10GB — p/ rodar com contexto grande (OLLAMA_CONTEXT_LENGTH alto) sem offload."
-
+    description: "Modelo grande com folga de VRAM p/ contexto maior (OLLAMA_CONTEXT_LENGTH)."
   ultra:
-    label: "Modo Ultra Esforço"
+    label: "Ultra Esforco"
     vram_gb: 12
-    vram_real: "~10-11 GB"
-    llm: "qwen3:14b"         # ~9.3GB em Q4_K_M; cabe em 12GB
     stt: "large-v3"
-    description: "Máxima qualidade. Requer GPU de 12GB+ de VRAM."
+    description: "Maxima qualidade. Requer GPU de 12GB+."
+
+families:
+  qwen3:
+    label: "Qwen3"
+    structured: "tools"       # bom tool-calling
+    models:
+      batata:       {llm: "qwen3:0.6b", vram_real: "~0.7-1 GB"}
+      ultra-leve:   {llm: "qwen3:1.7b", vram_real: "~1.5-1.8 GB"}
+      leve:         {llm: "qwen3:4b",   vram_real: "~3.3-3.6 GB"}
+      normal:       {llm: "qwen3:4b",   vram_real: "~3.3-3.6 GB"}
+      pesado:       {llm: "qwen3:8b",   vram_real: "~6-6.5 GB"}
+      muito-pesado: {llm: "qwen3:8b",   vram_real: "~6-6.5 GB"}
+      ultra:        {llm: "qwen3:14b",  vram_real: "~10-11 GB"}
+
+  gemma:
+    label: "Gemma"
+    structured: "json"        # Gemma nao tem tool-calling nativo -> JSON
+    models:
+      batata:       {llm: "gemma3:1b",  vram_real: "~1-1.3 GB"}
+      ultra-leve:   {llm: "gemma2:2b",  vram_real: "~1.9-2.2 GB"}
+      leve:         {llm: "gemma3:4b",  vram_real: "~4-4.3 GB"}
+      normal:       {llm: "gemma3:4b",  vram_real: "~4-4.3 GB"}
+      pesado:       {llm: "gemma2:9b",  vram_real: "~6-6.5 GB"}
+      muito-pesado: {llm: "gemma3:12b", vram_real: "~9-9.5 GB"}
+      ultra:        {llm: "gemma3:12b", vram_real: "~9-9.5 GB"}
+
+  deepseek:
+    label: "DeepSeek-R1 (raciocinio)"
+    structured: "json"        # R1 pensa antes de responder -> mais lento; JSON p/ estrutura
+    models:                   # sem 'batata': o menor (1.5b, ~1.5GB) nao cabe em 1GB
+      ultra-leve:   {llm: "deepseek-r1:1.5b", vram_real: "~1.4-1.6 GB"}
+      leve:         {llm: "deepseek-r1:1.5b", vram_real: "~1.4-1.6 GB"}
+      normal:       {llm: "deepseek-r1:7b",   vram_real: "~5-5.5 GB"}
+      pesado:       {llm: "deepseek-r1:8b",   vram_real: "~5.5-6 GB"}
+      muito-pesado: {llm: "deepseek-r1:14b",  vram_real: "~9.5-10 GB"}
+      ultra:        {llm: "deepseek-r1:14b",  vram_real: "~9.5-10 GB"}

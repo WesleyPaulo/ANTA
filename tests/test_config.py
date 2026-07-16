@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from anta.core.config import (
-    UserConfig, load_modes, load_user_config, save_user_config,
+    UserConfig, load_families, load_modes, load_user_config, save_user_config,
 )
 
 
@@ -27,9 +27,42 @@ class TestLoadModes(unittest.TestCase):
         self.assertTrue(modes[0].vram_real)  # os modos que shipamos tem o campo
 
 
+class TestLoadFamilies(unittest.TestCase):
+    def test_tres_familias_com_structured(self):
+        fams = load_families()
+        by_key = {f.key: f for f in fams}
+        self.assertIn("qwen3", by_key)
+        self.assertIn("gemma", by_key)
+        self.assertIn("deepseek", by_key)
+        self.assertEqual(by_key["qwen3"].structured, "tools")
+        self.assertEqual(by_key["gemma"].structured, "json")
+        self.assertEqual(by_key["deepseek"].structured, "json")
+
+    def test_modos_herdam_tier_e_familia(self):
+        fams = {f.key: f for f in load_families()}
+        leve = next(m for m in fams["gemma"].modes if m.key == "leve")
+        self.assertEqual(leve.vram_gb, 4)            # do tier
+        self.assertEqual(leve.stt, "turbo")          # do tier
+        self.assertEqual(leve.llm, "gemma3:4b")      # do modelo da familia
+        self.assertEqual(leve.structured, "json")    # da familia
+        # ordenados por vram_gb
+        vrams = [m.vram_gb for m in fams["qwen3"].modes]
+        self.assertEqual(vrams, sorted(vrams))
+
+    def test_familia_pode_omitir_tier(self):
+        fams = {f.key: f for f in load_families()}
+        deepseek_tiers = {m.key for m in fams["deepseek"].modes}
+        self.assertNotIn("batata", deepseek_tiers)   # deepseek nao cabe em 1GB
+        self.assertIn("ultra-leve", deepseek_tiers)
+
+    def test_load_modes_por_familia(self):
+        gemma = load_modes("gemma")
+        self.assertTrue(all(m.llm.startswith("gemma") for m in gemma))
+
+
 class TestUserConfigRoundTrip(unittest.TestCase):
     def test_salva_e_le(self):
-        cfg = UserConfig(mode="pesado", mic_device="Yeti USB",
+        cfg = UserConfig(mode="pesado", family="gemma", mic_device="Yeti USB",
                          hotkey="ctrl+space", obsidian_vault="/tmp/vault", tts=True,
                          rag=False, web=True, web_engine="searxng",
                          web_searxng_url="http://searx.local")
@@ -38,6 +71,7 @@ class TestUserConfigRoundTrip(unittest.TestCase):
             save_user_config(cfg, path)
             got = load_user_config(path)
         self.assertEqual(got.mode, "pesado")
+        self.assertEqual(got.family, "gemma")  # familia sobrevive ao round-trip
         self.assertEqual(got.mic_device, "Yeti USB")
         self.assertEqual(got.hotkey, "ctrl+space")
         self.assertEqual(got.obsidian_vault, "/tmp/vault")
@@ -71,11 +105,17 @@ class TestUserConfigRoundTrip(unittest.TestCase):
         self.assertFalse(got.tts)
         self.assertTrue(got.rag)    # ausente -> ligado por padrao
         self.assertFalse(got.web)   # ausente -> offline por padrao
+        self.assertEqual(got.family, "qwen3")  # ausente (config antiga) -> qwen3
 
     def test_mode_or_default_cai_no_mais_leve(self):
         modes = load_modes()
         cfg = UserConfig(mode="inexistente")
         self.assertEqual(cfg.mode_or_default(modes), modes[0])
+
+    def test_family_or_default_cai_na_primeira(self):
+        fams = load_families()
+        self.assertEqual(UserConfig(family="gemma").family_or_default(fams).key, "gemma")
+        self.assertEqual(UserConfig(family="sumiu").family_or_default(fams), fams[0])
 
 
 if __name__ == "__main__":

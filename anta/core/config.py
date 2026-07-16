@@ -13,28 +13,56 @@ import yaml
 class Mode:
     key: str
     label: str
-    vram_gb: float          # gate: card minimo recomendado
+    vram_gb: float             # gate: card minimo recomendado
     llm: str
     stt: str
     description: str
-    vram_real: str = ""     # consumo estimado do LLM carregado (opcional; so exibicao)
+    vram_real: str = ""        # consumo estimado do LLM carregado (opcional; so exibicao)
+    structured: str = "tools"  # modo de saida estruturada (vem da familia): tools | json
 
 
-def load_modes(path: str | Path = "modes.yaml") -> list[Mode]:
+@dataclass
+class Family:
+    key: str
+    label: str
+    structured: str
+    modes: list[Mode]          # ja ordenados por vram_gb
+
+
+def load_families(path: str | Path = "modes.yaml") -> list[Family]:
+    """Le o manifesto famílias × tiers. Cada Mode junta o tier (gate/stt/descricao) com
+    o modelo da familia (llm/vram_real) + o `structured` da familia. Ordem das familias =
+    ordem no YAML; uma familia pode omitir tiers."""
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    modes = []
-    for key, m in data["modes"].items():
-        modes.append(Mode(
-            key=key,
-            label=m["label"],
-            vram_gb=float(m["vram_gb"]),
-            llm=m["llm"],
-            stt=m["stt"],
-            description=m.get("description", ""),
-            vram_real=str(m.get("vram_real", "")),  # opcional: tier sem ele ainda carrega
-        ))
-    # ordena do mais leve pro mais pesado
-    return sorted(modes, key=lambda x: x.vram_gb)
+    tiers = data["tiers"]
+    families: list[Family] = []
+    for fam_key, fam in data["families"].items():
+        structured = fam.get("structured", "tools")
+        modes: list[Mode] = []
+        for tier_key, model in (fam.get("models") or {}).items():
+            t = tiers[tier_key]
+            modes.append(Mode(
+                key=tier_key,
+                label=t["label"],
+                vram_gb=float(t["vram_gb"]),
+                llm=model["llm"],
+                stt=t["stt"],
+                description=t.get("description", ""),
+                vram_real=str(model.get("vram_real", "")),
+                structured=structured,
+            ))
+        modes.sort(key=lambda x: x.vram_gb)
+        families.append(Family(key=fam_key, label=fam["label"],
+                               structured=structured, modes=modes))
+    return families
+
+
+def load_modes(family: str = "qwen3", path: str | Path = "modes.yaml") -> list[Mode]:
+    """Conveniencia: os modos de uma familia (default 'qwen3'), ja ordenados por vram_gb."""
+    families = load_families(path)
+    by_key = {f.key: f for f in families}
+    fam = by_key.get(family) or families[0]
+    return fam.modes
 
 
 # --- Config do usuario (escrita pelo instalador, lida pelo runtime) ---
@@ -43,6 +71,7 @@ def load_modes(path: str | Path = "modes.yaml") -> list[Mode]:
 @dataclass
 class UserConfig:
     mode: str = "leve"
+    family: str = "qwen3"              # familia de modelos (qwen3 | gemma | deepseek)
     mic_device: str | None = None      # NOME do device; None = default do sistema
     hotkey: str = "ctrl+alt+space"
     obsidian_vault: str | None = None  # caminho do vault; None = ~/anta-notas
@@ -58,6 +87,11 @@ class UserConfig:
         """Resolve o Mode correspondente, caindo no mais leve se o nome sumir."""
         by_key = {m.key: m for m in modes}
         return by_key.get(self.mode) or modes[0]
+
+    def family_or_default(self, families: list[Family]) -> Family:
+        """Resolve a Family; cai na primeira do YAML se o nome sumir (config antiga)."""
+        by_key = {f.key: f for f in families}
+        return by_key.get(self.family) or families[0]
 
 
 def config_dir() -> Path:
@@ -87,6 +121,7 @@ def load_user_config(path: str | Path | None = None) -> UserConfig:
     data = tomllib.loads(p.read_text(encoding="utf-8"))
     return UserConfig(
         mode=data.get("mode", "leve"),
+        family=str(data.get("family") or "qwen3"),  # ausente (config antiga) -> qwen3
         mic_device=_clean(data.get("mic_device", "")),
         hotkey=data.get("hotkey", "ctrl+alt+space"),
         obsidian_vault=_clean(data.get("obsidian_vault", "")),
@@ -112,6 +147,7 @@ def save_user_config(cfg: UserConfig, path: str | Path | None = None) -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "# Gerado pelo instalador do ANTA. Editar a mao tambem funciona.",
+        f"family = {_toml_str(cfg.family)}",
         f"mode = {_toml_str(cfg.mode)}",
         f"mic_device = {_toml_str(cfg.mic_device or '')}",
         f"hotkey = {_toml_str(cfg.hotkey)}",

@@ -86,23 +86,24 @@ class Session:
 
 
 def run() -> None:
-    from anta.core.config import config_path, load_modes, load_user_config
+    from anta.core.config import config_path, load_families, load_user_config
     from anta.core.capture import Recorder
     from anta.core.pipeline import Pipeline
     from anta.platform.detect import detect
     from anta.platform.hotkey import default_command, instructions_for
 
     cfg = load_user_config()
-    modes = load_modes()
-    mode = cfg.mode_or_default(modes)
+    families = load_families()
+    family = cfg.family_or_default(families)
+    mode = cfg.mode_or_default(family.modes)
 
-    _notify(f"iniciando modo '{mode.label}' — carregando modelos...")
+    _notify(f"iniciando {family.label} / modo '{mode.label}' — carregando modelos...")
     pipeline = Pipeline(
         stt_key=mode.stt, llm=mode.llm,
         obsidian_vault=cfg.obsidian_vault, tts=cfg.tts,
         tts_voice=cfg.tts_voice, tts_output=cfg.tts_output,
         rag=cfg.rag, web=cfg.web, web_engine=cfg.web_engine,
-        web_searxng_url=cfg.web_searxng_url,
+        web_searxng_url=cfg.web_searxng_url, structured=mode.structured,
     )
     try:
         pipeline.warm()

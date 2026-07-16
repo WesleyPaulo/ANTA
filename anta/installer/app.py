@@ -2,7 +2,7 @@
 
 Fluxo:
   1. detecta VRAM (hardware.best_vram_gb)
-  2. carrega modos (config.load_modes)
+  2. carrega familias/modos (config.load_families)
   3. mostra tabela colorida: verde=cabe / amarelo=apertado / vermelho=nao roda
   4. usuario escolhe modo + microfone
   5. puxa modelos via Ollama, grava config, mostra instrucao de atalho do SO
@@ -20,7 +20,7 @@ from textual.widgets import (
 )
 
 from anta.core.config import (
-    UserConfig, load_modes, load_user_config, save_user_config,
+    UserConfig, load_families, load_user_config, save_user_config,
 )
 from anta.installer.hardware import best_vram_gb, detect_gpus, status_for
 from anta.platform.detect import detect
@@ -35,6 +35,8 @@ class InstallerApp(App):
     CSS = """
     #hw { padding: 1; color: $accent; }
     DataTable { height: auto; }
+    #famrow { height: auto; padding: 0 1; }
+    #family { width: 40; }
     #row { height: auto; padding: 1; }
     #mic { width: 60; }
     RichLog { height: 12; border: round $primary; padding: 0 1; }
@@ -44,9 +46,14 @@ class InstallerApp(App):
 
     def __init__(self) -> None:
         super().__init__()
-        self._modes = load_modes()
+        self._families = load_families()
+        self._fam_by_key = {f.key: f for f in self._families}
         self._vram = best_vram_gb()
         self._cfg = load_user_config()
+        self._default_family = (self._cfg.family if self._cfg.family in self._fam_by_key
+                                else self._families[0].key)
+        # NAO usar '_ready': colide com App._ready (corotina que o Textual chama no boot).
+        self._cols_ready = False  # evita repovoar antes das colunas existirem
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -54,6 +61,10 @@ class InstallerApp(App):
         gpu_line = ", ".join(f"{g.name} ({g.vram_gb}GB)" for g in gpus) \
             or "nenhuma GPU NVIDIA detectada"
         yield Static(f"GPU: {gpu_line}  |  VRAM disponivel: {self._vram}GB", id="hw")
+        with Horizontal(id="famrow"):
+            yield Label("Familia: ")
+            yield Select([(f.label, f.key) for f in self._families], id="family",
+                         value=self._default_family, allow_blank=False)
         yield DataTable(id="modes")
         with Horizontal(id="row"):
             yield Label("Microfone: ")
@@ -83,7 +94,17 @@ class InstallerApp(App):
         table.cursor_type = "row"
         # "VRAM min" = gate (card minimo); "VRAM uso~" = consumo estimado do LLM carregado.
         table.add_columns("Modo", "VRAM min", "VRAM uso~", "Status", "LLM", "STT", "Descricao")
-        for m in self._modes:
+        self._populate_modes(self._default_family)
+        self._cols_ready = True  # colunas prontas: mudancas de familia ja podem repovoar
+        self._log("Escolha a familia, um modo (verde/amarelo), o microfone e Instalar.")
+
+    def _modes_of(self, family_key: str):
+        return (self._fam_by_key.get(family_key) or self._families[0]).modes
+
+    def _populate_modes(self, family_key: str) -> None:
+        table: DataTable = self.query_one("#modes", DataTable)
+        table.clear()  # mantem as colunas
+        for m in self._modes_of(family_key):
             st = status_for(m.vram_gb, self._vram)
             color = _COLOR[st]
             table.add_row(
@@ -93,7 +114,11 @@ class InstallerApp(App):
                 f"[{color}]{_MARK[st]}[/]",
                 m.llm, m.stt, m.description,
             )
-        self._log("Escolha um modo (verde/amarelo), o microfone e clique em Instalar.")
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        # troca de familia repovoa a tabela de modos (ignora o Select de microfone)
+        if event.select.id == "family" and self._cols_ready:
+            self._populate_modes(str(event.value))
 
     def _log(self, msg: str) -> None:
         self.query_one("#log", RichLog).write(msg)
@@ -101,12 +126,14 @@ class InstallerApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id != "go":
             return
+        family_key = str(self.query_one("#family", Select).value)
+        modes = self._modes_of(family_key)
         table: DataTable = self.query_one("#modes", DataTable)
         idx = table.cursor_row
-        if idx is None or idx < 0 or idx >= len(self._modes):
+        if idx is None or idx < 0 or idx >= len(modes):
             self._log("[red]Selecione uma linha de modo primeiro.[/]")
             return
-        mode = self._modes[idx]
+        mode = modes[idx]
         if status_for(mode.vram_gb, self._vram) == "vermelho":
             self._log(f"[red]'{mode.label}' precisa de {mode.vram_gb:.0f}GB de VRAM; "
                       f"voce tem {self._vram}GB. Escolha um modo mais leve.[/]")
@@ -115,7 +142,7 @@ class InstallerApp(App):
         mic_name = None if mic == _DEFAULT_MIC else str(mic)
         tts_on = self.query_one("#tts", Checkbox).value
         self.query_one("#go", Button).disabled = True
-        self._install(mode, mic_name, tts_on)
+        self._install(mode, family_key, mic_name, tts_on)
 
     def _run_stream(self, argv: list[str]) -> int:
         """Roda um comando, transmitindo stdout para o log. Retorna returncode."""
@@ -134,7 +161,7 @@ class InstallerApp(App):
         return proc.wait()
 
     @work(thread=True, exclusive=True)
-    def _install(self, mode, mic_name: str | None, tts_on: bool) -> None:
+    def _install(self, mode, family_key: str, mic_name: str | None, tts_on: bool) -> None:
         log = lambda m: self.call_from_thread(self._log, m)  # noqa: E731
 
         # 1. LLM via Ollama
@@ -183,6 +210,7 @@ class InstallerApp(App):
 
         # 4. Salvar config do usuario
         cfg = UserConfig(
+            family=family_key,
             mode=mode.key,
             mic_device=mic_name,
             hotkey=self._cfg.hotkey,

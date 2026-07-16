@@ -6,8 +6,10 @@ extra_body nao e aceito, e a injecao da janela de conversa no system prompt do d
 import unittest
 from types import SimpleNamespace
 
+import instructor
+
 from anta.actions.schema import Decisao, Responder
-from anta.core.brain import Brain, _strip_think
+from anta.core.brain import Brain, _instructor_mode, _strip_think
 from anta.core.prompts import Prompts
 
 _PROMPTS = Prompts(persona="PERSONA_X", decide="DECIDE_X", answer="ANSWER_X", resumo="RESUMO_X")
@@ -36,6 +38,16 @@ class TestStripThink(unittest.TestCase):
 
     def test_sem_think_inalterado(self):
         self.assertEqual(_strip_think("Ola"), "Ola")
+
+
+class TestInstructorMode(unittest.TestCase):
+    def test_json_e_tools(self):
+        self.assertEqual(_instructor_mode("json"), instructor.Mode.JSON)
+        self.assertEqual(_instructor_mode("tools"), instructor.Mode.TOOLS)
+
+    def test_default_e_tools(self):
+        # qualquer valor desconhecido cai em tools (comportamento atual do Brain)
+        self.assertEqual(_instructor_mode(""), instructor.Mode.TOOLS)
 
 
 class TestAnswer(unittest.TestCase):

@@ -1,5 +1,6 @@
 # Gerado pelo instalador. Copie para config.toml (ou o instalador cria).
-mode = "leve"                 # leve | pesado | ultra
+family = "qwen3"              # familia de modelos: qwen3 | gemma | deepseek
+mode = "leve"                 # tier: batata|ultra-leve|leve|normal|pesado|muito-pesado|ultra
 mic_device = ""               # NOME do microfone (vazio = default do sistema)
 hotkey = "ctrl+alt+space"     # usado onde a automacao de atalho e possivel
 obsidian_vault = ""           # caminho do vault para salvar notas/documentos

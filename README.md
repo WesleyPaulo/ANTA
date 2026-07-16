@@ -26,23 +26,30 @@ Decisao de arquitetura central: **STT na CPU, LLM na GPU.** Em placas de 8GB,
 rodar Whisper e o modelo de linguagem juntos na VRAM estouraria — separar
 mantem a GPU inteira para o LLM.
 
-## Modos por VRAM
+## Familias e modos por VRAM
 
-O instalador detecta sua VRAM e recomenda o modo. Definidos em `modes.yaml`:
+No instalador voce escolhe uma **familia** de modelos open-source e depois um **modo** (tier)
+por VRAM. Tudo declarativo em `modes.yaml` (tiers compartilhados × familias). O tier define o
+gate de VRAM + o STT; a familia troca o modelo (LLM).
 
-| Modo | VRAM min (gate) | VRAM uso~ | LLM | STT |
-|------|-----------------|-----------|-----|-----|
-| Batata | 1GB | ~0.7-1 GB | qwen3:0.6b | base |
-| Ultra Leve | 2GB | ~1.5-1.8 GB | qwen3:1.7b | small |
-| Leve | 4GB | ~3.3-3.6 GB | qwen3:4b | large-v3-turbo |
-| Normal | 6GB | ~3.3-3.6 GB | qwen3:4b | large-v3 |
-| Pesado | 8GB | ~6-6.5 GB | qwen3:8b | large-v3 |
-| Muito Pesado | 10GB | ~6-6.5 GB | qwen3:8b | large-v3 |
-| Ultra Esforco | 12GB | ~10-11 GB | qwen3:14b | large-v3 |
+| Tier | Gate | STT | Qwen3 | Gemma | DeepSeek-R1 |
+|------|------|-----|-------|-------|-------------|
+| Batata | 1GB | base | qwen3:0.6b | gemma3:1b | — |
+| Ultra Leve | 2GB | small | qwen3:1.7b | gemma2:2b | deepseek-r1:1.5b |
+| Leve | 4GB | turbo | qwen3:4b | gemma3:4b | deepseek-r1:1.5b |
+| Normal | 6GB | large-v3 | qwen3:4b | gemma3:4b | deepseek-r1:7b |
+| Pesado | 8GB | large-v3 | qwen3:8b | gemma2:9b | deepseek-r1:8b |
+| Muito Pesado | 10GB | large-v3 | qwen3:8b | gemma3:12b | deepseek-r1:14b |
+| Ultra | 12GB | large-v3 | qwen3:14b | gemma3:12b | deepseek-r1:14b |
 
-`VRAM min` e o gate (card minimo); `VRAM uso~` e o consumo estimado do LLM ja carregado
-(STT/embedder rodam na CPU e nao contam). Adicionar um tier = um bloco novo no
-`modes.yaml`. O instalador nao muda.
+- **Gate** = VRAM minima que o instalador exige; o `vram_real` (consumo estimado do LLM) fica
+  abaixo, com folga. STT/embedder rodam na CPU e nao contam (a VRAM e so do LLM).
+- **Saida estruturada** por familia: Qwen3 usa tool-calling (`tools`); Gemma e DeepSeek nao tem
+  tool-calling nativo, entao usam JSON (`structured: "json"` no YAML).
+- **DeepSeek-R1 sao modelos de raciocinio** (pensam antes de responder): mais lentos e menos
+  confiaveis pro roteamento de comandos — melhores pra respostas/RAG. Sem `batata` (nada cabe em 1GB).
+- Todos sao **open-source, gratuitos e locais** (via Ollama). Adicionar familia/tier = um bloco
+  no `modes.yaml`. O instalador nao muda.
 
 ## Stack
 
@@ -111,11 +118,12 @@ docs/atalhos.md instrucoes de atalho por sistema
 - v0.2: TTS por voz (Piper, PT-BR); automacao best-effort do atalho no
   Wayland/KDE (com fallback manual); runtime Windows validado; correcoes
   cross-platform (mic por nome, tags de modelo, keep-alive no boot).
-- v0.3 (atual): **memoria + RAG + resumos + prompts editaveis + busca web opt-in** —
-  busca semantica nas notas (`consultar`), memoria automatica + explicita (`lembrar`),
-  resumos de atividade dia/semana/mes (`resumir`), busca na internet opcional
-  (`buscar_web`, `web=true`), continuidade de conversa na sessao; embedding na CPU via
-  `fastembed` (VRAM intacta); prompts (persona/tom/regras) em `prompts.toml` editavel.
+- v0.3 (atual): **memoria + RAG + resumos + prompts editaveis + busca web opt-in +
+  familias de modelos** — busca semantica nas notas (`consultar`), memoria automatica +
+  explicita (`lembrar`), resumos de atividade dia/semana/mes (`resumir`), busca na internet
+  opcional (`buscar_web`, `web=true`), continuidade de conversa na sessao; embedding na CPU
+  via `fastembed` (VRAM intacta); prompts em `prompts.toml` editavel; escolha de familia
+  (Qwen3/Gemma/DeepSeek) + modo por VRAM, com `structured` tools/json por familia.
 - v0.4: modo reuniao (audio do sistema via PipeWire/WASAPI).
 
 ## Licenca

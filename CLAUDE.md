@@ -20,7 +20,10 @@ uma restricao real de hardware (GPU de 8GB).
    preload `keep_alive=-1` no endpoint nativo do Ollama (o endpoint OpenAI-compat
    nao aceita `keep_alive`); setar `OLLAMA_KEEP_ALIVE=-1` no servico persiste
    entre reinicios (documentar no instalador).
-6. **Modos sao declarativos.** Toda escolha de modelo sai de `modes.yaml`.
+6. **Modos sao declarativos.** Toda escolha de modelo sai de `modes.yaml`, agora estruturado
+   em **familias × tiers**: `tiers` (gate `vram_gb` + `stt` + descricao, compartilhados) e
+   `families` (Qwen3/Gemma/DeepSeek — cada uma troca o `llm` por tier + o modo `structured`).
+   Adicionar familia/tier = um bloco no YAML; nenhum codigo muda.
 7. **RAG/embedding SEMPRE na CPU.** O embedder (`fastembed`/onnxruntime) roda na CPU,
    como o STT — a VRAM segue exclusiva do LLM (reforca o principio 1). O RAG so LE
    arquivos e devolve trechos; a sintese em linguagem natural e do LLM (`Brain.answer`).
@@ -29,8 +32,11 @@ uma restricao real de hardware (GPU de 8GB).
 
 ### 1. Config do usuario — `anta/core/config.py`
 - `load_user_config()` / `save_user_config()` lendo/escrevendo TOML
-  (ver `config.example.toml`). Campos: mode, mic_device, hotkey,
-  obsidian_vault, tts.
+  (ver `config.example.toml`). Campos: family, mode, mic_device, hotkey,
+  obsidian_vault, tts, rag, web*. Campos novos ausentes caem em default (retrocompat).
+- `load_families() -> list[Family]` monta os `Mode`s juntando tier + modelo da familia
+  (+ `structured`); `load_modes(family="qwen3")` e conveniencia. `UserConfig.family_or_default`
+  + `mode_or_default` resolvem familia→modo (fallback: 1a familia / mais leve).
 
 ### 2. Captura — `anta/core/capture.py`
 - `list_input_devices()` via `sounddevice.query_devices()`.
@@ -43,9 +49,10 @@ uma restricao real de hardware (GPU de 8GB).
 - `transcribe(audio) -> str` com `language="pt"`.
 
 ### 4. Cerebro — `anta/core/brain.py`
-- `Brain.decide(texto) -> Decisao` via `instructor.from_openai(OpenAI(
-  base_url="http://localhost:11434/v1", api_key="ollama"))`, `response_model=Decisao`,
-  `temperature=0.1`, `model=self.llm`.
+- `Brain.decide(texto, history) -> Decisao` via `instructor.from_openai(OpenAI(...),
+  mode=_instructor_mode(self.structured))`, `response_model=Decisao`, `temperature=0.1`.
+  `structured` vem do modo/familia: `tools` (Qwen3) ou `json` (Gemma/DeepSeek, sem
+  tool-calling nativo). `answer()`/`summarize()` usam client cru (sem instructor).
 - `Brain.warm()` faz o preload `keep_alive=-1` (principio 5); chamado por `Pipeline.warm()`.
 
 ### 4.5 TTS — `anta/core/tts.py`
@@ -132,8 +139,9 @@ uma restricao real de hardware (GPU de 8GB).
 - Feedback via `notify-send` (Linux) / `print`.
 
 ### 8. Instalador — `anta/installer/app.py`
-- Selecao de linha (modo) + dropdown de microfone
-  (`capture.list_input_devices`). Bloquear modos "vermelho".
+- `Select` de **familia** (repovoa a tabela de modos no `Select.Changed`, guardado por
+  `_ready` p/ nao correr antes das colunas) + selecao de linha (modo) + dropdown de
+  microfone (`capture.list_input_devices`). Bloquear modos "vermelho". Salva family+mode.
 - A tabela mostra `vram_gb` (**VRAM min** — gate que libera/bloqueia) e `vram_real`
   (**VRAM uso~** — consumo estimado do LLM carregado, so exibicao). Ambos vem de
   `modes.yaml`; `vram_real` e opcional no `Mode` (tier sem ele ainda carrega).
