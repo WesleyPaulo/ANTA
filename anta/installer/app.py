@@ -167,6 +167,18 @@ class InstallerApp(App):
                 log(f"[yellow]nao baixei a voz TTS: {e}. Deixando TTS desligado.[/]")
                 tts_on = False
 
+        # 3.5. Modelo de embedding p/ RAG (CPU, so se ligado) — mesmo padrao do STT
+        if self._cfg.rag:
+            log("[b]Baixando modelo de embedding (RAG, CPU)[/]...")
+            try:
+                from anta.core.rag import Embedder
+
+                Embedder().load()
+                log("Embedding ok.")
+            except Exception as e:  # noqa: BLE001 - RAG segue lazy no 1o uso se falhar aqui
+                log(f"[yellow]nao baixei o modelo de embedding: {e}. "
+                    f"O RAG tentara baixar sob demanda.[/]")
+
         # 4. Salvar config do usuario
         cfg = UserConfig(
             mode=mode.key,
@@ -176,9 +188,19 @@ class InstallerApp(App):
             tts=tts_on,
             tts_voice=tts_voice,
             tts_output=self._cfg.tts_output,
+            rag=self._cfg.rag,
         )
         path = save_user_config(cfg)
         log(f"Config salva em {path}")
+
+        # 4.5. Prompts editaveis: escreve o prompts.toml padrao (sem sobrescrever edicoes)
+        try:
+            from anta.core.prompts import write_default_prompts
+
+            pp = write_default_prompts()
+            log(f"Prompts editaveis em {pp} (ajuste tom/regras sem mexer no codigo).")
+        except Exception as e:  # noqa: BLE001
+            log(f"[yellow]nao escrevi o prompts.toml: {e}[/]")
 
         # 5. Atalho global conforme o SO
         log(setup_hotkey(hotkey=cfg.hotkey))

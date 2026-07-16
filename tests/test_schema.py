@@ -3,7 +3,8 @@ uniao discriminada 'Decisao' desserializa cada tipo de acao corretamente."""
 import unittest
 
 from anta.actions.schema import (
-    AbrirApp, AdicionarTarefa, CriarDocumento, CriarNota, Decisao, Responder,
+    AbrirApp, AdicionarTarefa, Consultar, CriarDocumento, CriarNota, Decisao,
+    Lembrar, Responder, Resumir,
 )
 
 
@@ -36,9 +37,49 @@ class TestDecisaoDiscriminada(unittest.TestCase):
             {"escolha": {"acao": "responder", "texto": "oi"}})
         self.assertIsInstance(d.escolha, Responder)
 
+    def test_lembrar(self):
+        d = Decisao.model_validate(
+            {"escolha": {"acao": "lembrar", "fato": "prefiro docx"}})
+        self.assertIsInstance(d.escolha, Lembrar)
+        self.assertEqual(d.escolha.fato, "prefiro docx")
+
+    def test_consultar(self):
+        d = Decisao.model_validate(
+            {"escolha": {"acao": "consultar", "pergunta": "qual o prazo do projeto?"}})
+        self.assertIsInstance(d.escolha, Consultar)
+
+    def test_resumir_periodo(self):
+        d = Decisao.model_validate(
+            {"escolha": {"acao": "resumir", "periodo": "semana"}})
+        self.assertIsInstance(d.escolha, Resumir)
+        self.assertEqual(d.escolha.periodo, "semana")
+
+    def test_resumir_periodo_default_dia(self):
+        d = Decisao.model_validate({"escolha": {"acao": "resumir"}})
+        self.assertEqual(d.escolha.periodo, "dia")
+
+    def test_resumir_periodo_invalido_rejeitado(self):
+        with self.assertRaises(Exception):
+            Decisao.model_validate({"escolha": {"acao": "resumir", "periodo": "ano"}})
+
     def test_acao_invalida_rejeitada(self):
         with self.assertRaises(Exception):
             Decisao.model_validate({"escolha": {"acao": "rm_rf", "alvo": "/"}})
+
+
+class TestCanalMemoria(unittest.TestCase):
+    def test_memoria_default_none(self):
+        d = Decisao.model_validate(
+            {"escolha": {"acao": "responder", "texto": "oi"}})
+        self.assertIsNone(d.memoria)
+
+    def test_memoria_preenchida_convive_com_a_acao(self):
+        d = Decisao.model_validate({
+            "escolha": {"acao": "criar_documento", "titulo": "Contrato", "conteudo": "..."},
+            "memoria": "cliente: Ricardo",
+        })
+        self.assertIsInstance(d.escolha, CriarDocumento)
+        self.assertEqual(d.memoria, "cliente: Ricardo")
 
 
 if __name__ == "__main__":

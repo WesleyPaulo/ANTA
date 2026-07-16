@@ -4,12 +4,27 @@ from pathlib import Path
 
 from anta.actions.executor import ExecContext, execute
 from anta.actions.schema import (
-    AbrirApp, AdicionarTarefa, CriarDocumento, CriarNota, Decisao, Responder,
+    AbrirApp, AdicionarTarefa, Consultar, CriarDocumento, CriarNota, Decisao,
+    Lembrar, Responder, Resumir,
 )
 
 
 def _dec(acao):
     return Decisao(escolha=acao)
+
+
+class _Chunk:
+    def __init__(self, texto):
+        self.texto = texto
+
+
+class _FakeRag:
+    """Fake do RAG p/ handlers: devolve chunks fixos na consulta."""
+    def __init__(self, chunks=None):
+        self._chunks = chunks or []
+
+    def query(self, pergunta, k=5):
+        return list(self._chunks)
 
 
 class TestExecutor(unittest.TestCase):
@@ -52,6 +67,76 @@ class TestExecutor(unittest.TestCase):
     def test_responder_retorna_texto(self):
         msg = execute(_dec(Responder(texto="ola mundo")), self.ctx)
         self.assertEqual(msg, "ola mundo")
+
+    def test_lembrar_escreve_em_memoria(self):
+        # indexacao e no query (RAG.query reconcilia), nao no handler
+        ctx = ExecContext(vault=Path(self._tmp.name), tts=False, rag=_FakeRag())
+        msg = execute(_dec(Lembrar(fato="prefiro documentos em docx")), ctx)
+        notas = list((Path(self._tmp.name) / "memoria").glob("*.md"))
+        self.assertEqual(len(notas), 1)
+        self.assertIn("prefiro documentos em docx", notas[0].read_text(encoding="utf-8"))
+        self.assertIn("Vou lembrar", msg)
+
+    def test_lembrar_sem_rag_ainda_grava(self):
+        ctx = ExecContext(vault=Path(self._tmp.name), tts=False, rag=None)
+        execute(_dec(Lembrar(fato="fato solto")), ctx)
+        self.assertEqual(len(list((Path(self._tmp.name) / "memoria").glob("*.md"))), 1)
+
+    def test_consultar_recupera_e_sintetiza(self):
+        rag = _FakeRag([_Chunk("o prazo do projeto e sexta")])
+        captura = {}
+
+        def fake_answer(pergunta, contexto):
+            captura["pergunta"] = pergunta
+            captura["contexto"] = contexto
+            return "O prazo e sexta."
+
+        ctx = ExecContext(vault=Path(self._tmp.name), rag=rag, answer=fake_answer)
+        msg = execute(_dec(Consultar(pergunta="qual o prazo?")), ctx)
+        self.assertEqual(msg, "O prazo e sexta.")
+        self.assertIn("prazo do projeto", captura["contexto"])
+        self.assertEqual(captura["pergunta"], "qual o prazo?")
+
+    def test_consultar_sem_resultado_nao_chama_llm(self):
+        chamou = []
+        ctx = ExecContext(vault=Path(self._tmp.name), rag=_FakeRag([]),
+                          answer=lambda p, c: chamou.append(1) or "x")
+        msg = execute(_dec(Consultar(pergunta="nada")), ctx)
+        self.assertIn("Nao encontrei", msg)
+        self.assertEqual(chamou, [])  # sem contexto => nem chama o LLM
+
+    def test_consultar_rag_desativado(self):
+        ctx = ExecContext(vault=Path(self._tmp.name), rag=None)
+        msg = execute(_dec(Consultar(pergunta="x")), ctx)
+        self.assertIn("desativada", msg.lower())
+
+    def test_resumir_sintetiza_e_salva_em_resumos(self):
+        vault = Path(self._tmp.name)
+        (vault / "hoje.md").write_text("# Hoje\n\nescrevi a proposta", encoding="utf-8")
+        captura = {}
+
+        def fake_summarize(periodo, material):
+            captura["periodo"] = periodo
+            captura["material"] = material
+            return "Hoje voce escreveu a proposta."
+
+        ctx = ExecContext(vault=vault, summarize=fake_summarize)
+        msg = execute(_dec(Resumir(periodo="dia")), ctx)
+        self.assertEqual(msg, "Hoje voce escreveu a proposta.")
+        self.assertIn("escrevi a proposta", captura["material"])
+        self.assertEqual(captura["periodo"], "dia")
+        resumos = list((vault / "resumos").glob("*.md"))
+        self.assertEqual(len(resumos), 1)
+        self.assertIn("Hoje voce escreveu a proposta.", resumos[0].read_text(encoding="utf-8"))
+
+    def test_resumir_periodo_vazio_nao_chama_llm_nem_salva(self):
+        chamou = []
+        ctx = ExecContext(vault=Path(self._tmp.name),
+                          summarize=lambda p, m: chamou.append(1) or "x")
+        msg = execute(_dec(Resumir(periodo="dia")), ctx)  # vault vazio
+        self.assertIn("Nao ha nada registrado", msg)
+        self.assertEqual(chamou, [])
+        self.assertFalse((Path(self._tmp.name) / "resumos").exists())
 
 
 if __name__ == "__main__":

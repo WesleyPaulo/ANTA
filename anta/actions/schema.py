@@ -42,9 +42,30 @@ class Responder(BaseModel):
     texto: str  # apenas fala/mostra, nao altera nada no sistema
 
 
-Acao = Union[CriarNota, CriarDocumento, AdicionarTarefa, AbrirApp, Responder]
+class Lembrar(BaseModel):
+    acao: Literal["lembrar"] = "lembrar"
+    fato: str  # fato duravel a memorizar quando o usuario pede ("lembre que...")
+
+
+class Consultar(BaseModel):
+    acao: Literal["consultar"] = "consultar"
+    pergunta: str  # pergunta sobre o que o usuario anotou/pediu p/ lembrar (busca RAG)
+
+
+class Resumir(BaseModel):
+    acao: Literal["resumir"] = "resumir"
+    periodo: Literal["dia", "semana", "mes"] = "dia"  # janela do resumo de atividade
+
+
+Acao = Union[
+    CriarNota, CriarDocumento, AdicionarTarefa, AbrirApp, Responder, Lembrar, Consultar,
+    Resumir,
+]
 
 
 class Decisao(BaseModel):
-    """O modelo devolve exatamente uma acao."""
+    """O modelo devolve exatamente uma acao, e opcionalmente um fato a memorizar."""
     escolha: Acao = Field(discriminator="acao")
+    # Canal AUTOMATICO de memoria: preenchido so quando ha um fato duravel/reutilizavel
+    # sobre o usuario a lembrar junto da acao (senao None). Nao repete o comando.
+    memoria: str | None = None
