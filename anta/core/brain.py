@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from anta.actions.schema import Decisao
+from anta.actions.schema import Decisao, Responder
 from anta.core.prompts import Prompts, load_prompts, now_line
 
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
@@ -37,6 +37,28 @@ def _strip_think(txt: str) -> str:
 # realmente suprime o <think>. So no qwen3:4b (thinking-2507) e no-op — por isso o
 # modes.yaml usa 4b-instruct.
 _SEM_RACIOCINIO = {"reasoning_effort": "none"}
+
+
+def _texto_solto(erro: Exception) -> str | None:
+    """Resgata o texto que o modelo escreveu quando ele conversou em vez de chamar a acao.
+
+    O Ollama NAO aceita `tool_choice`, entao a chamada de ferramenta nunca e obrigatoria:
+    num 'e ai?' o modelo pequeno so responde ('E ai! Como vai?') e o instructor levanta
+    'No tool calls found'. Mas essa resposta E a acao certa — um Responder — so que fora
+    do envelope. Perder isso e mostrar um traceback e o pior desfecho possivel.
+
+    Le o `last_completion` do InstructorRetryException. Best-effort: qualquer surpresa na
+    forma do erro devolve None e o chamador levanta o erro original.
+    """
+    comp = getattr(erro, "last_completion", None)
+    try:
+        conteudo = comp.choices[0].message.content
+        if getattr(comp.choices[0].message, "tool_calls", None):
+            return None  # houve tool call: a falha foi outra (schema invalido), nao chat
+    except (AttributeError, IndexError, TypeError):
+        return None
+    limpo = _strip_think(conteudo or "").strip()
+    return limpo or None
 
 
 def _instructor_mode(structured: str):
@@ -134,20 +156,26 @@ class Brain:
             linhas = "\n".join(f'- Voce disse: "{fala}" -> {rotulo}' for fala, rotulo in history)
             system = (f"{system}\n\nConversa recente (mais antigo -> mais novo), use "
                       f"para resolver referencias como 'isso'/'aquele'/'outra igual':\n{linhas}")
-        return self._get_client().chat.completions.create(
-            model=self.llm,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": texto},
-            ],
-            response_model=Decisao,
-            temperature=0.1,
-            # 2 tentativas: o instructor re-prompta com o erro de schema. Modelo
-            # pequeno erra o formato de vez em quando e a 2a costuma acertar; mais
-            # que isso so faz o usuario esperar em silencio.
-            max_retries=2,
-            extra_body=dict(_SEM_RACIOCINIO),
-        )
+        try:
+            return self._get_client().chat.completions.create(
+                model=self.llm,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": texto},
+                ],
+                response_model=Decisao,
+                temperature=0.1,
+                # 2 tentativas: o instructor re-prompta com o erro de schema. Modelo
+                # pequeno erra o formato de vez em quando e a 2a costuma acertar; mais
+                # que isso so faz o usuario esperar em silencio.
+                max_retries=2,
+                extra_body=dict(_SEM_RACIOCINIO),
+            )
+        except Exception as e:  # noqa: BLE001 - ver _texto_solto
+            resgatado = _texto_solto(e)
+            if resgatado is None:
+                raise
+            return Decisao(escolha=Responder(texto=resgatado))
 
     def _complete(self, system: str, user: str, temperature: float) -> str:
         """Completion crua (sem response_model). Pede sem raciocinio (ver

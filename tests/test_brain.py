@@ -150,6 +150,52 @@ class TestSemRaciocinio(unittest.TestCase):
         self.assertEqual(b.answer("p", "ctx"), "resp")  # sem extra_body, mas responde
 
 
+class TestConversaViraResponder(unittest.TestCase):
+    """Regressao real: 'e ai' -> o modelo respondeu 'E ai! Como vai?' em texto, sem
+    tool call (o Ollama nao aceita tool_choice, entao a ferramenta nunca e obrigatoria).
+    O instructor levantava, e ainda por cima o reask_tools dele crashava iterando
+    tool_calls=None. A resposta certa existia; era so resgatar do envelope errado."""
+
+    def _erro(self, content, tool_calls=None):
+        msg = SimpleNamespace(content=content, tool_calls=tool_calls)
+        comp = SimpleNamespace(choices=[SimpleNamespace(message=msg)])
+        e = RuntimeError("No tool calls or function call found in response (mode: TOOLS)")
+        e.last_completion = comp
+        return e
+
+    def _brain_que_falha(self, erro):
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        def create(**kwargs):
+            raise erro
+        b._client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+        return b
+
+    def test_texto_solto_vira_responder(self):
+        b = self._brain_que_falha(self._erro("E ai! Como vai?"))
+        d = b.decide("e ai")
+        self.assertIsInstance(d.escolha, Responder)
+        self.assertEqual(d.escolha.texto, "E ai! Como vai?")
+
+    def test_think_e_removido_do_resgate(self):
+        b = self._brain_que_falha(self._erro("<think>hmm</think>Ola!"))
+        self.assertEqual(b.decide("oi").escolha.texto, "Ola!")
+
+    def test_falha_com_tool_call_nao_e_resgatada(self):
+        # houve tool call: o erro foi schema invalido, nao conversa -> levanta
+        erro = self._erro("texto qualquer", tool_calls=[SimpleNamespace(id="1")])
+        with self.assertRaises(RuntimeError):
+            self._brain_que_falha(erro).decide("oi")
+
+    def test_erro_sem_completion_levanta(self):
+        with self.assertRaises(RuntimeError):
+            self._brain_que_falha(RuntimeError("ollama fora do ar")).decide("oi")
+
+    def test_content_vazio_levanta(self):
+        with self.assertRaises(RuntimeError):
+            self._brain_que_falha(self._erro("   ")).decide("oi")
+
+
 class TestContextoDeTempo(unittest.TestCase):
     """'que dia e hoje?' caia em buscar_web: o modelo nao tinha a data e a persona
     manda 'nunca invente'. Com a web off, era um beco sem saida."""
