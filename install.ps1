@@ -4,6 +4,13 @@
 # ambiente Python com `uv` e abre o instalador TUI. No Windows os wheels de
 # sounddevice/pynput ja trazem as libs nativas (nao precisa de portaudio/dev).
 #
+# MANTER ESTE ARQUIVO EM ASCII PURO (sem acento, sem em-dash). O Windows
+# PowerShell 5.1 le .ps1 SEM BOM usando o codepage ANSI: um caractere UTF-8
+# multibyte vira mojibake e, se o resultado contiver aspa "inteligente" (U+201D),
+# o parser a trata como delimitador de string e o script quebra com
+# "Token inesperado" numa linha aleatoria. Ha teste de regressao em
+# tests/test_install_scripts.py.
+#
 # Uso:  powershell -ExecutionPolicy Bypass -File .\install.ps1
 $ErrorActionPreference = "Stop"
 
@@ -15,7 +22,7 @@ Set-Location $RepoDir
 
 function Have($cmd) { $null -ne (Get-Command $cmd -ErrorAction SilentlyContinue) }
 
-Log "ANTA — bootstrap (Windows)"
+Log "ANTA - bootstrap (Windows)"
 
 # uv (gerencia Python + venv)
 if (Have "uv") {
@@ -41,7 +48,7 @@ if (Have "winget") {
     Warn "winget nao encontrado. Instale manualmente: Pandoc (pandoc.org) e Ollama (ollama.com)."
 }
 
-# winget grava o PATH no registro, nao na sessao — recarrega pra TUI achar ollama/pandoc
+# winget grava o PATH no registro, nao na sessao - recarrega pra TUI achar ollama/pandoc
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
             [Environment]::GetEnvironmentVariable('Path', 'User')
 
@@ -50,7 +57,7 @@ uv venv --python 3.12 "$RepoDir\.venv"
 $env:VIRTUAL_ENV = "$RepoDir\.venv"
 uv pip install -r "$RepoDir\requirements.txt"
 # Instala o proprio pacote (editavel). Sem isso, `python -m anta` so funciona com o
-# CWD na pasta do repo — e o autostart do login (HKCU\...\Run) roda com o CWD do
+# CWD na pasta do repo - e o autostart do login (HKCU\...\Run) roda com o CWD do
 # sistema, quebrando com ModuleNotFoundError. --no-deps: as deps ja vieram acima.
 uv pip install -e "$RepoDir" --no-deps
 
