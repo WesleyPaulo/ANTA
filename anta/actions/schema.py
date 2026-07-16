@@ -53,8 +53,10 @@ class Consultar(BaseModel):
 
 
 class Resumir(BaseModel):
+    # Resumo da ATIVIDADE do usuario num periodo de tempo. Resumo de um ASSUNTO/tema
+    # (das notas) e 'consultar', nao 'resumir' — a desambiguacao vive no prompt decide.
     acao: Literal["resumir"] = "resumir"
-    periodo: Literal["dia", "semana", "mes"] = "dia"  # janela do resumo de atividade
+    periodo: Literal["dia", "semana", "mes"] = "dia"  # janela de tempo do resumo
 
 
 Acao = Union[
