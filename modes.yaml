@@ -10,26 +10,58 @@
 #             O gate deixa folga sobre o vram_real p/ KV cache maior + VRAM do desktop.
 
 modes:
+  batata:
+    label: "Modo Batata"
+    vram_gb: 1
+    vram_real: "~0.7-1 GB"
+    llm: "qwen3:0.6b"        # ~0.5GB em Q4_K_M; roda em quase qualquer GPU
+    stt: "base"              # Whisper leve p/ CPU fraca (menos preciso em PT-BR)
+    description: "Roda quase em qualquer GPU (1GB). Modelo minusculo: o roteamento das acoes erra mais."
+
+  ultra-leve:
+    label: "Modo Ultra Leve"
+    vram_gb: 2
+    vram_real: "~1.5-1.8 GB"
+    llm: "qwen3:1.7b"        # ~1.3GB em Q4_K_M
+    stt: "small"             # Whisper pequeno (bom equilibrio em CPU modesta)
+    description: "Bem leve (2GB). Comandos simples; qualidade abaixo do Leve."
+
   leve:
     label: "Modo Leve"
-    vram_gb: 4                # gate: card mínimo
-    vram_real: "~3.3-3.6 GB"  # uso estimado do LLM carregado
-    llm: "qwen3:4b"           # tag do modelo no Ollama (~2.5GB em Q4_K_M)
-    stt: "turbo"              # faster-whisper: large-v3-turbo (int8, CPU)
+    vram_gb: 4
+    vram_real: "~3.3-3.6 GB"
+    llm: "qwen3:4b"          # ~2.5GB em Q4_K_M
+    stt: "turbo"             # faster-whisper: large-v3-turbo (int8, CPU) — rapido
     description: "Comandos rápidos e notas curtas. Roda folgado em 4GB+."
+
+  normal:
+    label: "Modo Normal"
+    vram_gb: 6
+    vram_real: "~3.3-3.6 GB"
+    llm: "qwen3:4b"          # mesmo LLM do Leve; a folga de 6GB e p/ STT melhor + contexto
+    stt: "large-v3"          # transcricao PT-BR mais precisa (mais pesada na CPU)
+    description: "Como o Leve, mas com STT large-v3 (PT-BR mais preciso). Folga de VRAM em 6GB."
 
   pesado:
     label: "Modo Pesado"
     vram_gb: 8
     vram_real: "~6-6.5 GB"
-    llm: "qwen3:8b"           # ~5.2GB em Q4_K_M; cabe folgado em 8GB (STT fica na CPU)
+    llm: "qwen3:8b"          # ~5.2GB em Q4_K_M; cabe folgado em 8GB (STT fica na CPU)
     stt: "large-v3"
     description: "Geração de documentos e transcrição precisa em PT-BR. 8GB+."
+
+  muito-pesado:
+    label: "Modo Muito Pesado"
+    vram_gb: 10
+    vram_real: "~6-6.5 GB"
+    llm: "qwen3:8b"          # mesmo 8b do Pesado, com folga total em 10GB
+    stt: "large-v3"
+    description: "8b com folga total em 10GB — p/ rodar com contexto grande (OLLAMA_CONTEXT_LENGTH alto) sem offload."
 
   ultra:
     label: "Modo Ultra Esforço"
     vram_gb: 12
     vram_real: "~10-11 GB"
-    llm: "qwen3:14b"          # ~9.3GB em Q4_K_M; cabe em 12GB
+    llm: "qwen3:14b"         # ~9.3GB em Q4_K_M; cabe em 12GB
     stt: "large-v3"
     description: "Máxima qualidade. Requer GPU de 12GB+ de VRAM."

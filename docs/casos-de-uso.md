@@ -118,11 +118,18 @@ offline — nada de web sem opt-in.
 
 ## Variação por hardware (`modes.yaml`)
 
-| Modo | VRAM | Perfil |
-|------|------|--------|
-| Leve | 4GB | comandos rápidos e notas curtas (`qwen3:4b` + Whisper `turbo`) |
-| Pesado | 8GB | documentos e PT-BR preciso (`qwen3:8b` + `large-v3`) |
-| Ultra | 12GB | máxima qualidade (`qwen3:14b`) |
+O `vram_gb` é o **gate** (card mínimo que o instalador exige); o `vram_real` é o
+**consumo estimado** do LLM já carregado (STT e embedder são CPU e não contam).
+
+| Modo | Gate | Uso~ | Perfil |
+|------|------|------|--------|
+| Batata | 1GB | ~0.7-1 GB | roda em quase qualquer GPU (`qwen3:0.6b`); roteamento erra mais |
+| Ultra Leve | 2GB | ~1.5-1.8 GB | comandos simples (`qwen3:1.7b`) |
+| Leve | 4GB | ~3.3-3.6 GB | comandos rápidos e notas curtas (`qwen3:4b` + Whisper `turbo`) |
+| Normal | 6GB | ~3.3-3.6 GB | como o Leve, com STT `large-v3` (PT-BR mais preciso) |
+| Pesado | 8GB | ~6-6.5 GB | documentos e PT-BR preciso (`qwen3:8b` + `large-v3`) |
+| Muito Pesado | 10GB | ~6-6.5 GB | `qwen3:8b` com folga p/ contexto grande (`OLLAMA_CONTEXT_LENGTH`) |
+| Ultra | 12GB | ~10-11 GB | máxima qualidade (`qwen3:14b`) |
 
 ## Ajustando o tom e as regras (prompts editáveis)
 

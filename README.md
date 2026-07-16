@@ -30,13 +30,19 @@ mantem a GPU inteira para o LLM.
 
 O instalador detecta sua VRAM e recomenda o modo. Definidos em `modes.yaml`:
 
-| Modo | VRAM | LLM | STT |
-|------|------|-----|-----|
-| Leve | 4GB | qwen3:4b | large-v3-turbo |
-| Pesado | 8GB | qwen3:8b | large-v3 |
-| Ultra Esforco | 12GB | qwen3:14b | large-v3 |
+| Modo | VRAM min (gate) | VRAM uso~ | LLM | STT |
+|------|-----------------|-----------|-----|-----|
+| Batata | 1GB | ~0.7-1 GB | qwen3:0.6b | base |
+| Ultra Leve | 2GB | ~1.5-1.8 GB | qwen3:1.7b | small |
+| Leve | 4GB | ~3.3-3.6 GB | qwen3:4b | large-v3-turbo |
+| Normal | 6GB | ~3.3-3.6 GB | qwen3:4b | large-v3 |
+| Pesado | 8GB | ~6-6.5 GB | qwen3:8b | large-v3 |
+| Muito Pesado | 10GB | ~6-6.5 GB | qwen3:8b | large-v3 |
+| Ultra Esforco | 12GB | ~10-11 GB | qwen3:14b | large-v3 |
 
-Adicionar um tier = um bloco novo no `modes.yaml`. O instalador nao muda.
+`VRAM min` e o gate (card minimo); `VRAM uso~` e o consumo estimado do LLM ja carregado
+(STT/embedder rodam na CPU e nao contam). Adicionar um tier = um bloco novo no
+`modes.yaml`. O instalador nao muda.
 
 ## Stack
 
