@@ -29,11 +29,19 @@ class Family:
     modes: list[Mode]          # ja ordenados por vram_gb
 
 
-def load_families(path: str | Path = "modes.yaml") -> list[Family]:
+def default_modes_path() -> Path:
+    """`modes.yaml` na RAIZ DO REPO, resolvido a partir deste arquivo — nunca do CWD.
+    O daemon roda de qualquer pasta (autostart do login abre com o CWD do sistema),
+    entao um caminho relativo daria FileNotFoundError."""
+    return Path(__file__).resolve().parents[2] / "modes.yaml"
+
+
+def load_families(path: str | Path | None = None) -> list[Family]:
     """Le o manifesto famílias × tiers. Cada Mode junta o tier (gate/stt/descricao) com
     o modelo da familia (llm/vram_real) + o `structured` da familia. Ordem das familias =
     ordem no YAML; uma familia pode omitir tiers."""
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    p = Path(path) if path is not None else default_modes_path()
+    data = yaml.safe_load(p.read_text(encoding="utf-8"))
     tiers = data["tiers"]
     families: list[Family] = []
     for fam_key, fam in data["families"].items():
@@ -57,7 +65,7 @@ def load_families(path: str | Path = "modes.yaml") -> list[Family]:
     return families
 
 
-def load_modes(family: str = "qwen3", path: str | Path = "modes.yaml") -> list[Mode]:
+def load_modes(family: str = "qwen3", path: str | Path | None = None) -> list[Mode]:
     """Conveniencia: os modos de uma familia (default 'qwen3'), ja ordenados por vram_gb."""
     families = load_families(path)
     by_key = {f.key: f for f in families}

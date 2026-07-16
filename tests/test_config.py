@@ -1,10 +1,23 @@
+import contextlib
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
 from anta.core.config import (
-    UserConfig, load_families, load_modes, load_user_config, save_user_config,
+    UserConfig, default_modes_path, load_families, load_modes, load_user_config,
+    save_user_config,
 )
+
+
+@contextlib.contextmanager
+def _cwd(path):
+    old = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old)
 
 
 class TestLoadModes(unittest.TestCase):
@@ -58,6 +71,14 @@ class TestLoadFamilies(unittest.TestCase):
     def test_load_modes_por_familia(self):
         gemma = load_modes("gemma")
         self.assertTrue(all(m.llm.startswith("gemma") for m in gemma))
+
+    def test_carrega_de_qualquer_cwd(self):
+        # regressao: o daemon roda de qualquer pasta (autostart do login abre com o
+        # CWD do sistema). O modes.yaml e resolvido pela raiz do repo, nao pelo CWD.
+        self.assertTrue(default_modes_path().is_absolute())
+        with tempfile.TemporaryDirectory() as d, _cwd(d):
+            self.assertTrue(load_families())   # nao pode dar FileNotFoundError
+            self.assertTrue(load_modes("qwen3"))
 
 
 class TestUserConfigRoundTrip(unittest.TestCase):

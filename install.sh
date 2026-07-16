@@ -93,6 +93,10 @@ ensure_uv
 log "preparando o ambiente Python (.venv) com uv..."
 uv venv --python 3.12 "$REPO_DIR/.venv"
 VIRTUAL_ENV="$REPO_DIR/.venv" uv pip install -r "$REPO_DIR/requirements.txt"
+# Instala o proprio pacote (editavel). Sem isso, `python -m anta` so funciona com o
+# CWD na pasta do repo — e o autostart do login (.desktop) roda com outro CWD,
+# quebrando com ModuleNotFoundError. --no-deps: as deps ja vieram acima.
+VIRTUAL_ENV="$REPO_DIR/.venv" uv pip install -e "$REPO_DIR" --no-deps
 
 log "tudo pronto. Abrindo o instalador (escolha o modo e o microfone)..."
 exec "$REPO_DIR/.venv/bin/python" -m anta

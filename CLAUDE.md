@@ -37,6 +37,10 @@ uma restricao real de hardware (GPU de 8GB).
 - `load_families() -> list[Family]` monta os `Mode`s juntando tier + modelo da familia
   (+ `structured`); `load_modes(family="qwen3")` e conveniencia. `UserConfig.family_or_default`
   + `mode_or_default` resolvem familia→modo (fallback: 1a familia / mais leve).
+- `default_modes_path()`: o `modes.yaml` e resolvido pela **raiz do repo** (via `__file__`),
+  NUNCA pelo CWD — o daemon sobe pelo autostart do login, com o CWD do sistema. Pelo mesmo
+  motivo os instaladores fazem `uv pip install -e .` (sem isso `-m anta` so acha o pacote
+  com o CWD no repo).
 
 ### 2. Captura — `anta/core/capture.py`
 - `list_input_devices()` via `sounddevice.query_devices()`.

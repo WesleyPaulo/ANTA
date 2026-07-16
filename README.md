@@ -95,9 +95,13 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1    # Windows
 
 ```bash
 pip install -r requirements.txt
-python -m anta            # abre o instalador (TUI)
-python -m anta run        # roda o assistente (apos configurar)
+pip install -e . --no-deps   # instala o pacote: `anta` roda de qualquer pasta
+anta                         # abre o instalador (TUI)   (ou: python -m anta)
+anta run                     # roda o assistente (apos configurar)
 ```
+
+O `-e .` importa: sem ele, `python -m anta` so funciona com o CWD na raiz do repo — e o
+autostart do login roda com outro CWD.
 
 ## Estrutura
 

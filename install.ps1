@@ -49,6 +49,10 @@ Log "preparando o ambiente Python (.venv) com uv..."
 uv venv --python 3.12 "$RepoDir\.venv"
 $env:VIRTUAL_ENV = "$RepoDir\.venv"
 uv pip install -r "$RepoDir\requirements.txt"
+# Instala o proprio pacote (editavel). Sem isso, `python -m anta` so funciona com o
+# CWD na pasta do repo — e o autostart do login (HKCU\...\Run) roda com o CWD do
+# sistema, quebrando com ModuleNotFoundError. --no-deps: as deps ja vieram acima.
+uv pip install -e "$RepoDir" --no-deps
 
 Log "tudo pronto. Abrindo o instalador (escolha o modo e o microfone)..."
 & "$RepoDir\.venv\Scripts\python.exe" -m anta

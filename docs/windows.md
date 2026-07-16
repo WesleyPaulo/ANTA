@@ -1,52 +1,96 @@
-# ANTA no Windows — checklist de validação (v0.2)
+# ANTA no Windows — instalação e uso
 
-O código é cross-platform desde a v0.1 (detecção de SO, VRAM via NVIDIA, atalho
-in-process, config em `%APPDATA%`), mas o alvo testado era Linux. A v0.2 corrige
-o quoting do interpretador no autostart e usa este checklist para validar o
-runtime ponta-a-ponta em **Windows + GPU NVIDIA**.
+> **Status honesto:** o código é cross-platform (detecção de SO, VRAM via NVIDIA, atalho
+> in-process, config em `%APPDATA%`), mas o alvo **testado** é Linux. O Windows está
+> **implementado e não validado ponta-a-ponta**. Este guia é o fluxo pretendido; o
+> checklist no fim serve pra registrar o que quebrar na primeira validação real.
 
 ## Pré-requisitos
-- Windows 10/11, GPU NVIDIA com driver atualizado (o gating de VRAM usa `nvidia-smi`).
-- `winget` disponível (para pandoc e Ollama).
 
-## Passos
+- Windows 10/11.
+- **GPU NVIDIA com driver atualizado** — o gating de modo usa `nvidia-smi`. Sem NVIDIA,
+  só o modo *Batata* fica selecionável (amarelo) e o LLM roda na **CPU** (funciona, mas lento).
+- **`winget`** (o bootstrap usa pra trazer pandoc e Ollama). Sem winget, instale à mão:
+  [Ollama](https://ollama.com) e [Pandoc](https://pandoc.org).
 
-1. **Instalar**
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\install.ps1
-   ```
-   Espera-se: `uv` instala, `winget` traz pandoc e Ollama, cria `.venv` (Python
-   3.12), instala `requirements.txt` (inclui `piper-tts`) e abre a TUI.
+## Passo a passo
 
-2. **Configurar (TUI)** — escolher um modo verde/amarelo, o microfone e, se
-   quiser voz, marcar **"Falar respostas (TTS)"**. Confirmar em "Instalar".
-   Espera-se: `ollama pull <llm>`, download do Whisper, (se TTS) download da voz
-   PT-BR, `config.toml` salvo em `%APPDATA%\anta\config.toml`, atalho registrado
-   no login (`HKCU\...\Run`).
+### 1. Bootstrap
 
-3. **Autostart com caminho com espaços** — confirmar que o valor gravado no
-   Run-key vem com o interpretador **entre aspas** (`"C:\...\python.exe" -m anta run`).
-   Sem aspas, um caminho com espaço (ex.: `C:\Users\Nome Sobrenome\...`) quebra.
-   (Corrigido em `hotkey.default_command`.)
+Abra o PowerShell **na pasta do repo**:
 
-4. **Rodar o daemon**
-   ```powershell
-   .\.venv\Scripts\python.exe -m anta run
-   ```
-   Espera-se: carrega os modelos, fixa o LLM na VRAM (keep-alive no boot) e passa
-   a ouvir `ctrl+alt+space` in-process (pynput). `anta toggle` **não** se aplica
-   no Windows (o próprio `run` captura a tecla).
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
 
-5. **Ações** — testar por voz: criar nota, criar documento (pandoc no PATH da
-   sessão após o reload de PATH), abrir app da whitelist, e uma pergunta
-   (resposta por voz se TTS ligado).
+O script faz **tudo isto** (não precisa rodar nada antes):
+1. instala o `uv` (gerencia Python + venv);
+2. via `winget`: **pandoc** + **Ollama**;
+3. recarrega o PATH (winget grava no registro, não na sessão);
+4. cria a `.venv` (Python 3.12) e instala o `requirements.txt`;
+5. instala o próprio pacote (`uv pip install -e .`) — é o que faz o `anta` funcionar
+   **de qualquer pasta** (e cria o comando `anta`);
+6. abre o **instalador TUI**.
 
-6. **TTS** — confirmar que a resposta é reproduzida (wheel `piper-tts` traz o
-   onnxruntime; o `sounddevice` usa o PortAudio do próprio wheel).
+### 2. Configurar na TUI
 
-## Limitações conhecidas
-- **Notificações**: no Windows o feedback vai só para o `print` no terminal
-  (sem `notify-send`). Um toast nativo fica para depois (fora do escopo v0.2).
-- **macOS** permanece não suportado (gating de VRAM assume NVIDIA).
+1. **Família**: Qwen3 (recomendado — tool-calling mais confiável), Gemma ou DeepSeek-R1.
+2. **Modo**: escolha uma linha **verde** (ou amarela = apertado). Vermelho = não roda.
+   A tabela mostra `VRAM min` (gate) e `VRAM uso~` (consumo estimado do LLM).
+3. **Microfone**: escolha no dropdown.
+4. **TTS**: marque "Falar respostas" se quiser voz (baixa uma voz PT-BR do Piper).
+5. Clique em **Instalar**.
 
-Registrar aqui qualquer bug encontrado durante a validação.
+Isso executa: `ollama pull <llm>`, baixa o modelo Whisper, baixa o embedder (RAG),
+baixa a voz (se TTS), salva `%APPDATA%\anta\config.toml` e `prompts.toml`, e registra o
+daemon no autostart (`HKCU\...\Run`).
+
+> Se o `ollama pull` falhar: o Ollama precisa estar **rodando** (após o winget ele sobe como
+> app na bandeja). Abra o Ollama e repita a instalação.
+
+### 3. Rodar o daemon
+
+**Isto é o que você roda além do `install.ps1`:**
+
+```powershell
+.\.venv\Scripts\anta.exe run
+```
+(ou `.\.venv\Scripts\python.exe -m anta run` — equivalente)
+
+Deixe a janela aberta. Ela:
+- carrega o Whisper (CPU) e **fixa o LLM na VRAM** (keep-alive no boot);
+- passa a ouvir **`ctrl+alt+space`** in-process (via `pynput`);
+- **mostra o feedback** — no Windows não há `notify-send`, o retorno sai no terminal.
+
+O instalador já registrou o autostart, então **no próximo login o daemon sobe sozinho**.
+Na primeira vez, rode à mão (ou faça logoff/logon).
+
+### 4. Usar
+
+`ctrl+alt+space` (começa a gravar) → fale → `ctrl+alt+space` (encerra) → ele transcreve,
+decide a ação e executa. Exemplos: *"cria uma nota chamada ideias: ..."*, *"adiciona
+tarefa comprar café até sexta"*, *"o que anotei sobre o contrato?"*, *"resumo da semana"*,
+*"abre o obsidian"*.
+
+Notas e documentos caem no vault (`obsidian_vault` no `config.toml`, ou `~/anta-notas`).
+
+## Notas e limitações
+
+- **`anta toggle` não é pro Windows** — lá o próprio `run` captura a tecla. O `toggle` existe
+  pro Wayland (Linux), onde apps não capturam teclas globais.
+- **pandoc** só é necessário para exportar `docx`/`pdf` (`criar_documento`).
+- **Notificações**: só `print` no terminal do daemon (toast nativo fica pra depois).
+- **Caminho com espaços**: o autostart grava o interpretador **entre aspas**
+  (`"C:\Users\Nome Sobrenome\...\python.exe" -m anta run`) — sem aspas quebraria.
+- **macOS** não é suportado (o gating de VRAM assume NVIDIA).
+
+## Checklist de validação (registrar bugs aqui)
+
+1. `install.ps1` roda limpo: uv, winget (pandoc+Ollama), `.venv`, deps, `-e .`, TUI abre.
+2. TUI: troca de **família** repovoa a tabela; modo vermelho é bloqueado; Instalar conclui.
+3. `config.toml` + `prompts.toml` em `%APPDATA%\anta\`; Run-key com o interpretador aspado.
+4. `anta run` sobe, fixa o LLM na VRAM, ouve `ctrl+alt+space`.
+5. **Autostart**: fazer logoff/logon e confirmar que o daemon sobe sozinho
+   (depende do pacote instalado com `-e .` e do `modes.yaml` resolvido pela raiz do repo).
+6. Ações por voz: nota, documento (pandoc), abrir app da whitelist, pergunta (+voz se TTS).
+7. RAG: criar uma nota e perguntar sobre ela na mesma sessão (o índice reconcilia no query).
