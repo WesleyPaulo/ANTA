@@ -75,13 +75,19 @@ class Brain:
         """Persona compartilhada + o prompt da tarefa."""
         return f"{self.prompts.persona}\n\n{task}"
 
-    def warm(self) -> None:
+    def warm(self) -> str | None:
         """Fixa o modelo na VRAM com um preload keep_alive=-1 no endpoint NATIVO
         do Ollama (/api/generate sem prompt so carrega e mantem o modelo). Cumpre
         o principio 'modelo sempre quente' no nivel do app — o endpoint
-        OpenAI-compat nao aceita keep_alive. Best-effort: se o Ollama nao estiver
-        de pe, nao derruba o boot (o chamador ja envolve warm() em try/except)."""
+        OpenAI-compat nao aceita keep_alive. Best-effort: nunca levanta, nao
+        derruba o boot.
+
+        Devolve None se o modelo ficou quente, ou uma mensagem de diagnostico se
+        nao. O chamador DEVE mostrar essa mensagem: um 404 aqui significa que o
+        modelo nao foi puxado, e entao TODA fala vai falhar — melhor dizer no
+        boot do que deixar o usuario descobrir na primeira frase."""
         import json
+        import urllib.error
         import urllib.request
 
         base = self.base_url.rsplit("/v1", 1)[0]  # http://host:11434/v1 -> raiz nativa
@@ -93,8 +99,14 @@ class Brain:
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
                 r.read()
-        except (OSError, ValueError):
-            pass
+            return None
+        except urllib.error.HTTPError as e:  # antes de OSError: HTTPError herda dele
+            if e.code == 404:  # modelo ausente no Ollama: erro de config, nao de rede
+                return (f"o modelo '{self.llm}' nao esta instalado no Ollama. "
+                        f"Rode: ollama pull {self.llm}")
+            return f"o Ollama recusou o preload de '{self.llm}' (HTTP {e.code})."
+        except (OSError, ValueError) as e:  # noqa: BLE001 - Ollama fora do ar/URL ruim
+            return f"nao consegui falar com o Ollama em {self.base_url} ({e})."
 
     def decide(self, texto: str, history: list[tuple[str, str]] | None = None) -> Decisao:
         """Escolhe a acao. `history` = janela de conversa recente [(fala, rotulo)] para

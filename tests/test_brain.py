@@ -4,6 +4,8 @@ Cobrem: strip de <think> e ancoragem no contexto em answer(), fallback quando o
 extra_body nao e aceito, e a injecao da janela de conversa no system prompt do decide().
 """
 import unittest
+import unittest.mock
+import urllib.error
 from types import SimpleNamespace
 
 import instructor
@@ -111,6 +113,49 @@ class TestDecideHistory(unittest.TestCase):
         b._client = _fake_client(capture=cap, canned=canned)
         b.decide("oi")
         self.assertNotIn("Conversa recente", cap["messages"][0]["content"])
+
+
+class TestWarm(unittest.TestCase):
+    """warm() e best-effort (nunca levanta), mas NAO pode ser mudo: um 404 aqui
+    significa que o modelo nao foi puxado e toda fala vai falhar depois. Aconteceu
+    no Windows: boot silencioso, 404 so na 1a frase."""
+
+    def _warm_com(self, exc):
+        """Roda warm() com um urlopen falso que levanta `exc` (None = sucesso)."""
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            if exc is not None:
+                raise exc
+            return _CtxResp()
+
+        with unittest.mock.patch.object(urllib.request, "urlopen", fake_urlopen):
+            return Brain("qwen3:4b", prompts=_PROMPTS).warm()
+
+    def test_sucesso_sem_aviso(self):
+        self.assertIsNone(self._warm_com(None))
+
+    def test_404_avisa_com_o_comando_do_pull(self):
+        aviso = self._warm_com(urllib.error.HTTPError(
+            "http://x/api/generate", 404, "Not Found", {}, None))
+        self.assertIn("qwen3:4b", aviso)
+        self.assertIn("ollama pull qwen3:4b", aviso)
+
+    def test_ollama_fora_do_ar_avisa_sem_levantar(self):
+        aviso = self._warm_com(OSError("connection refused"))
+        self.assertIn("Ollama", aviso)
+        self.assertIn("connection refused", aviso)
+
+    def test_outro_http_avisa_o_codigo(self):
+        aviso = self._warm_com(urllib.error.HTTPError(
+            "http://x/api/generate", 500, "Boom", {}, None))
+        self.assertIn("500", aviso)
+
+
+class _CtxResp:
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self): return b"{}"
 
 
 if __name__ == "__main__":

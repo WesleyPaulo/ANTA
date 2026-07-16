@@ -54,14 +54,17 @@ class Pipeline:
                 q, engine=web_engine, searxng_url=web_searxng_url)
         self._history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
 
-    def warm(self) -> None:
+    def warm(self) -> str | None:
         """Carrega o Whisper e fixa o LLM na VRAM no boot para nao pagar o custo
         na 1a fala (STT na CPU; LLM via keep_alive=-1 no Ollama). O indice RAG e
-        pre-aquecido em thread best-effort — a corretude e lazy no 1o uso."""
+        pre-aquecido em thread best-effort — a corretude e lazy no 1o uso.
+
+        Devolve o aviso do preload do LLM (ver Brain.warm) ou None se deu tudo certo."""
         self.transcriber.load()
-        self.brain.warm()
+        aviso = self.brain.warm()
         if self.rag is not None:
             self._prewarm_rag()
+        return aviso
 
     def _prewarm_rag(self) -> None:
         import threading

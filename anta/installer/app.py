@@ -164,14 +164,18 @@ class InstallerApp(App):
     def _install(self, mode, family_key: str, mic_name: str | None, tts_on: bool) -> None:
         log = lambda m: self.call_from_thread(self._log, m)  # noqa: E731
 
-        # 1. LLM via Ollama
+        # 1. LLM via Ollama. Sem ele NADA funciona (toda fala 404a no boot), entao o
+        # resultado vira o veredito da instalacao la embaixo — nao um log vermelho no
+        # meio de um "concluida" verde.
+        llm_ok = False
         if shutil.which("ollama") is None:
             log("[yellow]ollama nao encontrado.[/] Instale: "
                 "curl -fsSL https://ollama.com/install.sh | sh")
         else:
             log(f"[b]Puxando LLM {mode.llm}[/] via ollama (pode demorar)...")
             code = self._run_stream(["ollama", "pull", mode.llm])
-            log("LLM ok." if code == 0 else f"[red]ollama pull falhou (codigo {code}).[/]")
+            llm_ok = code == 0
+            log("LLM ok." if llm_ok else f"[red]ollama pull falhou (codigo {code}).[/]")
 
         # 2. Modelo STT (faster-whisper baixa no primeiro load)
         log(f"[b]Baixando modelo STT '{mode.stt}'[/] (faster-whisper, CPU int8)...")
@@ -242,7 +246,13 @@ class InstallerApp(App):
         log("[b]Nota:[/] o daemon fixa o LLM na VRAM ao iniciar (keep_alive=-1); "
             "para persistir entre reinicios, setar OLLAMA_KEEP_ALIVE=-1 no servico "
             "do ollama tambem ajuda.")
-        log(f"[green]Instalacao concluida.[/] Rode: {default_command()} run")
+        if llm_ok:
+            log(f"[green]Instalacao concluida.[/] Rode: {default_command()} run")
+        else:
+            log(f"[red]Instalacao INCOMPLETA: o LLM '{mode.llm}' nao foi baixado.[/] "
+                f"A config foi salva, mas a ANTA vai falhar em toda fala ate voce rodar: "
+                f"[b]ollama pull {mode.llm}[/] (confira tambem se o servico do ollama "
+                f"esta de pe: 'ollama list').")
         self.call_from_thread(self._enable_go)
 
     def _enable_go(self) -> None:

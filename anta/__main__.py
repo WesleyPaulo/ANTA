@@ -106,9 +106,12 @@ def run() -> None:
         web_searxng_url=cfg.web_searxng_url, structured=mode.structured,
     )
     try:
-        pipeline.warm()
+        aviso = pipeline.warm()
     except Exception as e:  # noqa: BLE001 - nao deixar o boot morrer por causa do STT
         _notify(f"aviso: falha ao carregar STT ({e}). Vou tentar sob demanda.")
+    else:
+        if aviso:  # LLM nao ficou quente (modelo ausente, Ollama fora do ar...)
+            _notify(f"aviso: {aviso}")
 
     recorder = Recorder(cfg.mic_device)
     session = Session(recorder, pipeline, _notify)
