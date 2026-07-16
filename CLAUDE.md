@@ -56,7 +56,23 @@ uma restricao real de hardware (GPU de 8GB).
 - `Brain.decide(texto, history) -> Decisao` via `instructor.from_openai(OpenAI(...),
   mode=_instructor_mode(self.structured))`, `response_model=Decisao`, `temperature=0.1`.
   `structured` vem do modo/familia: `tools` (Qwen3) ou `json` (Gemma/DeepSeek, sem
-  tool-calling nativo). `answer()`/`summarize()` usam client cru (sem instructor).
+  tool-calling nativo — mandar `tools` pra eles da **HTTP 400**, o `json` e load-bearing).
+  `answer()`/`summarize()` usam client cru (sem instructor).
+- **Raciocinio SEMPRE desligado** (`_SEM_RACIOCINIO = {"reasoning_effort": "none"}` no
+  `extra_body` de `decide` e `_complete`). O Ollama LIGA o thinking por padrao em todo
+  modelo capaz, e thinking+tools quebra o tool-calling (o modelo emite a chamada como
+  texto -> `No tool calls found (mode: TOOLS)`). `reasoning_effort` e o UNICO lever do
+  endpoint OpenAI-compat: `think:false` e `chat_template_kwargs` sao **silenciosamente
+  ignorados** (campo desconhecido -> descartado). `"none"` e seguro nas 3 familias (o
+  guard e `req.Think != nil && req.Think.Bool()`, e "none" vira `false` -> sem 400).
+- **`qwen3:4b-instruct`, nunca `qwen3:4b`** nos tiers leve/normal: o tag `qwen3:4b` foi
+  repontado pro Thinking-2507, cujo template abre `<think>` **incondicionalmente** — nao
+  ha parametro que desligue (o `reasoning_effort:"none"` vira no-op). Nao existe
+  `qwen3:8b-instruct`/`14b-instruct`; nesses tiers o lever funciona.
+- `now_line()` (de `prompts.py`) injeta data/hora em todo system prompt via `_sys()`. Sem
+  isso o modelo nao sabe a data e a persona manda "nunca invente" -> "que dia e hoje?"
+  virava `buscar_web`. Fica fora do `Prompts` de proposito: e fato, nao tom (nao editavel),
+  e precisa ser recalculado a cada chamada (o daemon fica ligado dias).
 - `Brain.warm()` faz o preload `keep_alive=-1` (principio 5); chamado por `Pipeline.warm()`.
 
 ### 4.5 TTS — `anta/core/tts.py`

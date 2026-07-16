@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 
 from anta.actions.schema import Decisao
-from anta.core.prompts import Prompts, load_prompts
+from anta.core.prompts import Prompts, load_prompts, now_line
 
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
@@ -23,6 +23,20 @@ OLLAMA_BASE_URL = "http://localhost:11434/v1"
 def _strip_think(txt: str) -> str:
     """Remove blocos <think>...</think> (qwen3/deepseek-r1 vazam raciocinio no content)."""
     return re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL)
+
+
+# O Ollama LIGA o raciocinio por padrao em todo modelo que sabe pensar (routes.go:
+# `if req.Think == nil { req.Think = true }`), e raciocinio + tools quebra o
+# tool-calling (o modelo escreve a chamada como texto). Este e o unico lever que o
+# endpoint OpenAI-compat aceita: `think:false` e `chat_template_kwargs` sao
+# SILENCIOSAMENTE ignorados (campo desconhecido -> descartado, sem erro).
+#
+# Seguro nas tres familias: o guard e `req.Think != nil && req.Think.Bool()`, e
+# "none" vira ThinkValue{false}, entao modelos sem raciocinio (Gemma, 4b-instruct)
+# passam batido em vez de dar 400. Em qwen3:0.6b/1.7b/8b/14b e deepseek-r1 ele
+# realmente suprime o <think>. So no qwen3:4b (thinking-2507) e no-op — por isso o
+# modes.yaml usa 4b-instruct.
+_SEM_RACIOCINIO = {"reasoning_effort": "none"}
 
 
 def _instructor_mode(structured: str):
@@ -72,8 +86,12 @@ class Brain:
         return self._raw_client
 
     def _sys(self, task: str) -> str:
-        """Persona compartilhada + o prompt da tarefa."""
-        return f"{self.prompts.persona}\n\n{task}"
+        """Persona compartilhada + contexto de tempo + o prompt da tarefa.
+
+        A data entra aqui (e nao no Prompts) porque e fato, nao tom: nao faz sentido
+        o usuario editar no prompts.toml, e precisa ser recalculada a cada chamada —
+        o daemon fica ligado dias."""
+        return f"{self.prompts.persona}\n\n{now_line()}\n\n{task}"
 
     def warm(self) -> str | None:
         """Fixa o modelo na VRAM com um preload keep_alive=-1 no endpoint NATIVO
@@ -124,11 +142,18 @@ class Brain:
             ],
             response_model=Decisao,
             temperature=0.1,
+            # 2 tentativas: o instructor re-prompta com o erro de schema. Modelo
+            # pequeno erra o formato de vez em quando e a 2a costuma acertar; mais
+            # que isso so faz o usuario esperar em silencio.
+            max_retries=2,
+            extra_body=dict(_SEM_RACIOCINIO),
         )
 
     def _complete(self, system: str, user: str, temperature: float) -> str:
-        """Completion crua (sem response_model). enable_thinking=False economiza tokens
-        no qwen3; nem toda versao aceita, entao ha fallback. Sempre remove <think>."""
+        """Completion crua (sem response_model). Pede sem raciocinio (ver
+        _SEM_RACIOCINIO) — economiza tokens e latencia; ha fallback porque um Ollama
+        antigo pode nao conhecer o parametro. Sempre remove <think>: o deepseek-r1
+        pode ignorar o pedido, e ai o raciocinio vaza no content."""
         client = self._get_raw_client()
         messages = [
             {"role": "system", "content": system},
@@ -137,7 +162,7 @@ class Brain:
         try:
             resp = client.chat.completions.create(
                 model=self.llm, messages=messages, temperature=temperature,
-                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                extra_body=dict(_SEM_RACIOCINIO),
             )
         except Exception:  # noqa: BLE001 - fallback sem o extra_body
             resp = client.chat.completions.create(

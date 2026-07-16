@@ -36,8 +36,8 @@ gate de VRAM + o STT; a familia troca o modelo (LLM).
 |------|------|-----|-------|-------|-------------|
 | Batata | 1GB | base | qwen3:0.6b | gemma3:1b | — |
 | Ultra Leve | 2GB | small | qwen3:1.7b | gemma2:2b | deepseek-r1:1.5b |
-| Leve | 4GB | turbo | qwen3:4b | gemma3:4b | deepseek-r1:1.5b |
-| Normal | 6GB | large-v3 | qwen3:4b | gemma3:4b | deepseek-r1:7b |
+| Leve | 4GB | turbo | qwen3:4b-instruct | gemma3:4b | deepseek-r1:1.5b |
+| Normal | 6GB | large-v3 | qwen3:4b-instruct | gemma3:4b | deepseek-r1:7b |
 | Pesado | 8GB | large-v3 | qwen3:8b | gemma2:9b | deepseek-r1:8b |
 | Muito Pesado | 10GB | large-v3 | qwen3:8b | gemma3:12b | deepseek-r1:14b |
 | Ultra | 12GB | large-v3 | qwen3:14b | gemma3:12b | deepseek-r1:14b |
@@ -46,6 +46,10 @@ gate de VRAM + o STT; a familia troca o modelo (LLM).
   abaixo, com folga. STT/embedder rodam na CPU e nao contam (a VRAM e so do LLM).
 - **Saida estruturada** por familia: Qwen3 usa tool-calling (`tools`); Gemma e DeepSeek nao tem
   tool-calling nativo, entao usam JSON (`structured: "json"` no YAML).
+- **Raciocinio desligado** no roteamento: o Ollama liga o "thinking" sozinho em todo modelo que
+  sabe pensar, e isso quebra o tool-calling (o modelo escreve a chamada como texto). A ANTA pede
+  `reasoning_effort: "none"`. Nos tiers leve/normal do Qwen3 usamos `qwen3:4b-instruct` porque o
+  tag `qwen3:4b` aponta pro Thinking-2507, que pensa sempre — nao ha como desligar.
 - **DeepSeek-R1 sao modelos de raciocinio** (pensam antes de responder): mais lentos e menos
   confiaveis pro roteamento de comandos — melhores pra respostas/RAG. Sem `batata` (nada cabe em 1GB).
 - Todos sao **open-source, gratuitos e locais** (via Ollama). Adicionar familia/tier = um bloco

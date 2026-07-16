@@ -1,6 +1,6 @@
 import unittest
 
-from anta.__main__ import Session, _to_pynput_hotkey
+from anta.__main__ import Session, _short_err, _to_pynput_hotkey
 
 
 class TestHotkeyConversion(unittest.TestCase):
@@ -38,15 +38,16 @@ class _FakeRecorder:
 
 
 class _FakePipeline:
-    def __init__(self, feedback="feito", fail=False):
+    def __init__(self, feedback="feito", fail=False, exc=None):
         self.feedback = feedback
-        self.fail = fail
+        self.fail = fail or exc is not None
+        self.exc = exc or RuntimeError("ollama fora")
         self.received = None
 
     def run(self, audio):
         self.received = audio
         if self.fail:
-            raise RuntimeError("ollama fora")
+            raise self.exc
         return self.feedback
 
 
@@ -86,6 +87,31 @@ class TestSession(unittest.TestCase):
         s.toggle()                        # encerra -> pipeline falha
         self.assertFalse(s.on)
         self.assertTrue(any("pipeline" in m for m in msgs))
+
+    def test_erro_gigante_nao_vaza_pra_notificacao(self):
+        """Regressao: o erro do instructor embute o ChatCompletion inteiro; com
+        modelo de raciocinio isso viravam kBs de <think> num notify-send."""
+        gigante = RuntimeError("<failed_attempts>" + "x" * 9000)
+        s, msgs = self._make(_FakeRecorder(audio="A"), _FakePipeline(exc=gigante))
+        s.toggle()
+        s.toggle()
+        (erro,) = [m for m in msgs if m.startswith("erro no pipeline")]
+        self.assertLess(len(erro), 260)
+        self.assertTrue(erro.endswith("..."))
+
+
+class TestShortErr(unittest.TestCase):
+    def test_curto_passa_inteiro(self):
+        self.assertEqual(_short_err(ValueError("falhou feio")), "falhou feio")
+
+    def test_colapsa_quebras_de_linha(self):
+        self.assertEqual(_short_err(ValueError("a\n  b\n\nc")), "a b c")
+
+    def test_trunca_com_reticencias(self):
+        self.assertEqual(len(_short_err(ValueError("y" * 500), limite=50)), 53)
+
+    def test_excecao_sem_mensagem_usa_o_tipo(self):
+        self.assertEqual(_short_err(TimeoutError()), "TimeoutError")
 
 
 if __name__ == "__main__":

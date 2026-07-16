@@ -6,13 +6,14 @@ extra_body nao e aceito, e a injecao da janela de conversa no system prompt do d
 import unittest
 import unittest.mock
 import urllib.error
+from datetime import datetime
 from types import SimpleNamespace
 
 import instructor
 
 from anta.actions.schema import Decisao, Responder
 from anta.core.brain import Brain, _instructor_mode, _strip_think
-from anta.core.prompts import Prompts
+from anta.core.prompts import Prompts, now_line
 
 _PROMPTS = Prompts(persona="PERSONA_X", decide="DECIDE_X", answer="ANSWER_X", resumo="RESUMO_X")
 
@@ -113,6 +114,65 @@ class TestDecideHistory(unittest.TestCase):
         b._client = _fake_client(capture=cap, canned=canned)
         b.decide("oi")
         self.assertNotIn("Conversa recente", cap["messages"][0]["content"])
+
+
+class TestSemRaciocinio(unittest.TestCase):
+    """Regressao do bug real: o Ollama LIGA o raciocinio sozinho em modelo que pensa,
+    e raciocinio + tools quebrou o tool-calling (qwen3:4b escreveu a chamada como
+    texto e o instructor morreu com 'No tool calls found (mode: TOOLS)')."""
+
+    def test_decide_pede_sem_raciocinio(self):
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._client = _fake_client(capture=cap, canned=Decisao(escolha=Responder(texto="ok")))
+        b.decide("oi")
+        self.assertEqual(cap["extra_body"], {"reasoning_effort": "none"})
+
+    def test_decide_tem_retry(self):
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._client = _fake_client(capture=cap, canned=Decisao(escolha=Responder(texto="ok")))
+        b.decide("oi")
+        self.assertGreater(cap["max_retries"], 1)  # modelo pequeno erra o schema as vezes
+
+    def test_complete_pede_sem_raciocinio(self):
+        # e NAO o chat_template_kwargs de antes, que o Ollama descartava em silencio
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._raw_client = _fake_client(content="r", capture=cap)
+        b.answer("p", "ctx")
+        self.assertEqual(cap["extra_body"], {"reasoning_effort": "none"})
+        self.assertNotIn("chat_template_kwargs", cap.get("extra_body", {}))
+
+    def test_complete_cai_no_fallback_se_o_ollama_for_antigo(self):
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._raw_client = _fake_client(content="resp", raise_on_extra=True)
+        self.assertEqual(b.answer("p", "ctx"), "resp")  # sem extra_body, mas responde
+
+
+class TestContextoDeTempo(unittest.TestCase):
+    """'que dia e hoje?' caia em buscar_web: o modelo nao tinha a data e a persona
+    manda 'nunca invente'. Com a web off, era um beco sem saida."""
+
+    def test_now_line_em_portugues_sem_depender_de_locale(self):
+        linha = now_line(datetime(2026, 7, 16, 14, 32))
+        self.assertIn("14:32", linha)
+        self.assertIn("quinta-feira", linha)
+        self.assertIn("16 de julho de 2026", linha)
+
+    def test_decide_injeta_a_data_no_system(self):
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._client = _fake_client(capture=cap, canned=Decisao(escolha=Responder(texto="ok")))
+        b.decide("que dia e hoje")
+        self.assertIn("Contexto de tempo", cap["messages"][0]["content"])
+
+    def test_answer_tambem_recebe_a_data(self):
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._raw_client = _fake_client(content="r", capture=cap)
+        b.answer("p", "ctx")
+        self.assertIn("Contexto de tempo", cap["messages"][0]["content"])
 
 
 class TestWarm(unittest.TestCase):

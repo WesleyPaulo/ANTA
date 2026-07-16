@@ -56,8 +56,14 @@ families:
     models:
       batata:       {llm: "qwen3:0.6b", vram_real: "~0.7-1 GB"}
       ultra-leve:   {llm: "qwen3:1.7b", vram_real: "~1.5-1.8 GB"}
-      leve:         {llm: "qwen3:4b",   vram_real: "~3.3-3.6 GB"}
-      normal:       {llm: "qwen3:4b",   vram_real: "~3.3-3.6 GB"}
+      # '4b-instruct', NAO '4b': o tag 'qwen3:4b' foi repontado pro Thinking-2507,
+      # cujo template abre <think> INCONDICIONALMENTE — nao ha parametro que desligue
+      # (reasoning_effort:"none" e aceito e vira no-op). O raciocinio derrubava o
+      # tool-calling: o modelo escrevia buscar_web(...) como texto e o instructor
+      # falhava com 'No tool calls found (mode: TOOLS)'. O 4b-instruct nao tem <think>
+      # e mantem o bloco de tools intacto. Nao volte pro '4b' sem reler isto.
+      leve:         {llm: "qwen3:4b-instruct", vram_real: "~3.3-3.6 GB"}
+      normal:       {llm: "qwen3:4b-instruct", vram_real: "~3.3-3.6 GB"}
       pesado:       {llm: "qwen3:8b",   vram_real: "~6-6.5 GB"}
       muito-pesado: {llm: "qwen3:8b",   vram_real: "~6-6.5 GB"}
       ultra:        {llm: "qwen3:14b",  vram_real: "~10-11 GB"}

@@ -34,6 +34,17 @@ def _notify(msg: str) -> None:
             pass
 
 
+def _short_err(e: BaseException, limite: int = 200) -> str:
+    """Erro -> uma linha curta, pra notificacao.
+
+    Os erros do instructor embutem o ChatCompletion inteiro — com modelo de
+    raciocinio isso vira alguns kB de <think> na cara do usuario. O traceback
+    completo vai pro console (stderr); aqui fica so o resumo.
+    """
+    txt = " ".join(str(e).split()) or e.__class__.__name__
+    return txt if len(txt) <= limite else f"{txt[:limite].rstrip()}..."
+
+
 def _to_pynput_hotkey(hotkey: str) -> str:
     """'ctrl+alt+space' -> '<ctrl>+<alt>+<space>' (formato do pynput)."""
     special = {"ctrl", "alt", "shift", "cmd", "super", "win", "space",
@@ -80,7 +91,10 @@ class Session:
         try:
             feedback = self.pipeline.run(audio)
         except Exception as e:  # noqa: BLE001
-            self.notify(f"erro no pipeline: {e}")
+            import traceback
+
+            traceback.print_exc()  # completo no console, pra diagnostico
+            self.notify(f"erro no pipeline: {_short_err(e)}")
             return
         self.notify(feedback)
 

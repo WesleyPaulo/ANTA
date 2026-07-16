@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from anta.core.config import config_dir
@@ -19,6 +20,26 @@ PERSONA = (
     "Brasil, de forma curta, direta e cordial. Suas respostas sao FALADAS em voz alta: "
     "use frases curtas, sem markdown, sem listas com marcadores, sem emojis. Nunca invente."
 )
+
+_DIAS = ("segunda-feira", "terca-feira", "quarta-feira", "quinta-feira",
+         "sexta-feira", "sabado", "domingo")
+_MESES = ("janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho",
+          "agosto", "setembro", "outubro", "novembro", "dezembro")
+
+
+def now_line(agora: datetime | None = None) -> str:
+    """Contexto de tempo, injetado em TODO system prompt (nao e editavel: e fato, nao tom).
+
+    Sem isso o modelo nao tem como saber a data, e a persona manda 'nunca invente' —
+    entao 'que dia e hoje?' virava buscar_web (com a web off, um beco sem saida).
+    Formatamos na mao de proposito: strftime('%A') depende do locale do processo, que
+    no Windows quase nunca e pt_BR.
+    """
+    agora = agora or datetime.now()
+    return (f"Contexto de tempo (fonte da verdade, use sempre que precisar da data ou "
+            f"da hora): agora sao {agora:%H:%M} de {_DIAS[agora.weekday()]}, "
+            f"{agora.day} de {_MESES[agora.month - 1]} de {agora.year}.")
+
 
 # Roteamento de acao (decide) — com exemplos few-shot p/ o modelo pequeno acertar mais.
 DECIDE = (
@@ -40,9 +61,11 @@ DECIDE = (
     "tempo, e resumir. Periodo: dia, semana ou mes.\n"
     "- buscar_web: SOMENTE quando o usuario pede busca na internet ('pesquisa na web', "
     "'procura na internet', 'busca online') ou pergunta algo atual que exige a internet "
-    "(noticias de hoje, cotacao, placar). Conhecimento geral que voce ja sabe -> responder.\n"
+    "(noticias de hoje, cotacao, placar). Conhecimento geral que voce ja sabe -> responder. "
+    "Data e hora NAO exigem a internet: voce ja tem no contexto de tempo acima.\n"
     "- responder: perguntas gerais, conversa, resumo de conhecimento do mundo (nao das suas "
-    "notas nem da web), ou o que nao se encaixa acima. E o padrao.\n"
+    "notas nem da web), ou o que nao se encaixa acima. Inclui data e hora atuais ('que dia e "
+    "hoje?', 'que horas sao?') — leia do contexto de tempo acima. E o padrao.\n"
     "Campo memoria (opcional, separado da acao): preencha SO com um fato duravel e "
     "reutilizavel sobre o usuario (preferencia, nome, fato pessoal, decisao); senao, null. "
     "Nunca repita o comando, e nunca use memoria junto da acao lembrar.\n"
