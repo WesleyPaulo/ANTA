@@ -21,6 +21,9 @@ uma restricao real de hardware (GPU de 8GB).
    nao aceita `keep_alive`); setar `OLLAMA_KEEP_ALIVE=-1` no servico persiste
    entre reinicios (documentar no instalador).
 6. **Modos sao declarativos.** Toda escolha de modelo sai de `modes.yaml`.
+7. **RAG/embedding SEMPRE na CPU.** O embedder (`fastembed`/onnxruntime) roda na CPU,
+   como o STT — a VRAM segue exclusiva do LLM (reforca o principio 1). O RAG so LE
+   arquivos e devolve trechos; a sintese em linguagem natural e do LLM (`Brain.answer`).
 
 ## Mapa dos modulos
 
@@ -55,6 +58,39 @@ uma restricao real de hardware (GPU de 8GB).
   precisa de `sounddevice`/`numpy`/`piper`. O onnxruntime roda na CPU (nao viola
   o principio 1: a VRAM segue exclusiva do LLM) e so e importado ao falar.
 
+### 4.55 Prompts — `anta/core/prompts.py` (v0.3)
+- Todos os prompts vivem aqui (unica fonte): `PERSONA` (tom compartilhado, prefixado a
+  cada tarefa) + `DECIDE` (roteamento com few-shot) + `ANSWER` (RAG) + `RESUMO`.
+- `load_prompts()` sobrepoe overrides de `config_dir()/prompts.toml` campo a campo
+  (string vazia/tipo errado/arquivo invalido caem no padrao). `write_default_prompts()`
+  escreve o TOML editavel sem sobrescrever edicoes (o instalador chama). O `Brain` recebe
+  um `Prompts` (default `load_prompts()`) e prefixa a persona via `_sys(task)`.
+
+### 4.6 Memoria + RAG — `anta/core/rag.py` (v0.3)
+- Memoria de **curto prazo**: janela de conversa (`deque`, RAM-only, some ao reiniciar)
+  mantida no `Pipeline` e injetada em `Brain.decide(texto, history)` para resolver
+  referencias ("cria outra igual", "e o prazo disso?").
+- Memoria de **longo prazo**: notas `.md` em `<vault>/memoria/` (via
+  `helpers.write_memory_note`) indexadas pelo RAG. Escrita **automatica** (o LLM sinaliza
+  um fato duravel em `Decisao.memoria`, aplicado pelo `Pipeline`) **+ explicita** (acao
+  `Lembrar`). O guard `not isinstance(escolha, Lembrar)` evita gravacao dupla.
+- `RAG` (fachada) sobre `Embedder` (fastembed CPU, `load()` lazy, cache em
+  `config_dir()/embeddings`, `paraphrase-multilingual-MiniLM-L12-v2`; a logica de prefixo
+  e5 so dispara p/ modelos e5) e `Index` (matriz numpy float32 + metadados, persistida em
+  `config_dir()/index`, `reconcile` incremental por `(mtime,size)`, busca por cosseno).
+- **Frescura:** `RAG.query()` reconcilia o vault ANTES de buscar (o daemon e de vida
+  longa; notas/documentos criados na sessao ou editados por fora precisam aparecer). Por
+  isso os handlers de escrita NAO indexam explicitamente — nada de `index_file` no caminho
+  quente. `ensure_ready()`/`warm()` so pre-aquecem o modelo em thread best-effort.
+- Consulta = acao `Consultar` -> `handlers/consultar.py` recupera top-k e sintetiza via
+  `ctx.answer` (ligado a `Brain.answer`, completion crua sem `response_model`). Zero VRAM
+  extra: mesmo endpoint Ollama. Toggle `rag` na config (default `true`).
+- **Resumo** = acao `Resumir(periodo)` -> `handlers/resumir.py`: `helpers.gather_activity`
+  varre o que o usuario produziu na janela (notas/docs por mtime; tarefas por timestamp
+  da linha; ignora `resumos/`), `ctx.summarize` (=`Brain.summarize`) sintetiza, e
+  `helpers.write_summary_note` salva em `<vault>/resumos/`. O `Index._scan` inclui
+  `resumos/`, entao resumos ficam pesquisaveis pelo RAG.
+
 ### 5. Executor — `anta/actions/` (fachada + handlers)
 - `executor.py` e uma fachada fina: `execute(decisao, ctx)` despacha via
   `registry.HANDLERS` (mapa explicito tipo-de-acao -> handler; sem decorator/magia).
@@ -62,12 +98,19 @@ uma restricao real de hardware (GPU de 8GB).
   `criar_documento` converte via `pandoc` quando `formato != "md"`; `responder`
   fala via `anta/core/tts.speak` (Piper) se `ctx.tts`.
 - `apps.py`: whitelist de `abrir_app` isolada (`lookup`/`permitidos`).
-  `context.py`: `ExecContext` + constantes. `helpers.py`: `slug`/`unique_path`/`speak`.
+  `context.py`: `ExecContext` + constantes (agora carrega `rag`/`answer`/`summarize`,
+  injetados em runtime pelo `Pipeline`, anotados sob `TYPE_CHECKING` p/ a folha seguir
+  stdlib-only). `helpers.py`: `slug`/`unique_path`/`note_body`/`write_memory_note` +
+  helpers do resumo (`window_start`/`gather_activity`/`write_summary_note`).
 - Adicionar acao = classe no schema + arquivo em `handlers/` + 1 linha em `HANDLERS`
-  (o teste de exaustividade em `tests/test_apps.py` cobre o resto).
+  (o teste de exaustividade em `tests/test_apps.py` cobre o resto). `lembrar`/`consultar`
+  (v0.3) seguem esse padrao; `consultar` usa `ctx.rag`/`ctx.answer` (ver 4.6).
 
 ### 6. Pipeline — `anta/core/pipeline.py`
-- `run(audio)`: transcribe → decide → execute → retorna feedback.
+- `run(audio)`: transcribe → decide(texto, history) → execute → aplica canal automatico
+  de memoria (`Decisao.memoria`) → registra o turno na janela → retorna feedback.
+- Possui a memoria de sessao (`deque`) e o `RAG` (quando `rag=true`); `warm()` pre-aquece
+  o indice em thread best-effort. Ver 4.6.
 
 ### 7. Runtime / loop — `anta/__main__.py` (`run`)
 - `run` e um **daemon quente** (Whisper carregado + LLM via `OLLAMA_KEEP_ALIVE`):
@@ -80,8 +123,11 @@ uma restricao real de hardware (GPU de 8GB).
 ### 8. Instalador — `anta/installer/app.py`
 - Selecao de linha (modo) + dropdown de microfone
   (`capture.list_input_devices`). Bloquear modos "vermelho".
-- Ao confirmar: `ollama pull <llm>`, baixar o modelo Whisper, `save_user_config`,
-  chamar `hotkey.setup_hotkey`.
+- Ao confirmar: `ollama pull <llm>`, baixar o modelo Whisper, baixar o modelo de
+  embedding se `rag` (mesmo padrao do STT, best-effort), `save_user_config`,
+  `prompts.write_default_prompts()` (cria o `prompts.toml` editavel se ausente),
+  chamar `hotkey.setup_hotkey`. Campos novos da config (ex.: `rag`) sao preservados
+  puxando de `self._cfg` (senao resetam ao default numa reinstalacao).
 
 ### 9. Atalho — `anta/platform/hotkey.py`
 - `setup_hotkey` por estrategia (o daemon `anta run` captura a tecla via
@@ -100,9 +146,16 @@ Suite em `tests/` (`unittest` stdlib):
 whitelist + exaustividade do registro (`tests/test_apps.py`), resolucao de mic
 por nome (`test_capture.py`), guards do TTS + `_resolve_output` (`test_tts.py`) e
 a camada de atalho: quoting, `_kde_key`, automacao KDE best-effort com fallback
-manual (`test_hotkey.py`). Testes de I/O usam um `sounddevice` falso via
-`sys.modules` — nao dependem de PortAudio/piper reais.
+manual (`test_hotkey.py`), o nucleo RAG com **embedder fake** (chunking, ranking por
+cosseno, `reconcile` incremental, persistencia, prefixo e5, frescura no query —
+`test_rag.py`), `Brain` com clients falsos (strip `<think>`, history/persona no prompt,
+`summarize` — `test_brain.py`), o wiring do `Pipeline` (canal de memoria automatico +
+best-effort, guard anti-duplicata, janela de conversa — `test_pipeline.py`), os prompts
+editaveis (overlay/round-trip — `test_prompts.py`) e os helpers do resumo (janelas +
+`gather_activity` por mtime/timestamp — `test_helpers.py`). Testes de I/O usam fakes via
+`sys.modules`/injecao — nao dependem de PortAudio/piper/fastembed/Ollama reais.
 
 ## Nao-metas do MVP
-- Audio do sistema / reuniao. RAG. Modo conversacional em tempo real.
+- Audio do sistema / reuniao. Modo conversacional em tempo real (streaming).
   Gestao de memoria Linux (zram/systemd slice) — opcional, pos-MVP.
+- (RAG + memoria deixaram de ser nao-meta: implementados na v0.3 — ver 4.6.)

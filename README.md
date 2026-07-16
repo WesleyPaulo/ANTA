@@ -7,6 +7,13 @@ transcreve, entende a intencao e executa uma acao segura (criar nota, gerar
 documento, adicionar tarefa, abrir app). Nada de nuvem, nada de assinatura,
 nenhum audio sai da maquina.
 
+**Novo na v0.3 — memoria + busca (RAG) + resumos:** a ANTA lembra fatos duraveis sobre
+voce ("lembre que prefiro docx", ou automaticamente na conversa), responde perguntas
+sobre as suas proprias notas ("o que anotei sobre o projeto?") via busca semantica no
+vault, e faz resumos do que voce produziu ("resumo da semana" -> salvo em `resumos/`). O
+embedding roda **na CPU** — a VRAM segue exclusiva do LLM. Os prompts (persona/tom/regras)
+sao editaveis em `prompts.toml`, sem tocar no codigo.
+
 ## Como funciona
 
 ```
@@ -42,6 +49,8 @@ Adicionar um tier = um bloco novo no `modes.yaml`. O instalador nao muda.
 - **Documentos**: `pandoc` (Markdown → docx/pdf).
 - **Voz (TTS)**: `piper-tts` — voz PT-BR local, reproduzida pelo `sounddevice`
   (opcional, so quando `tts = true`).
+- **Memoria + RAG**: `fastembed` (onnxruntime) — embedding multilingue **na CPU**;
+  store por cosseno em `numpy` (sem faiss/chroma). Opcional, so quando `rag = true`.
 - **Atalho global**: automatico no Windows e Linux/X11; no Wayland/KDE o
   instalador tenta configurar via compositor, com fallback manual documentado.
 
@@ -79,9 +88,9 @@ python -m anta run        # roda o assistente (apos configurar)
 ```
 anta/
   installer/   TUI Textual + deteccao de VRAM (hardware.py)
-  core/        capture · stt · brain · pipeline · config
+  core/        capture · stt · brain · pipeline · config · rag (memoria/busca) · prompts
   actions/     schema Pydantic · executor (fachada) · registry · apps (whitelist)
-    handlers/  um arquivo por acao (criar_nota, criar_documento, ...)
+    handlers/  um arquivo por acao (criar_nota, ..., lembrar, consultar, resumir)
   platform/    detect (SO/sessao) · hotkey (atalho por SO)
 modes.yaml     manifesto dos modos
 docs/atalhos.md instrucoes de atalho por sistema
@@ -90,10 +99,14 @@ docs/atalhos.md instrucoes de atalho por sistema
 ## Roadmap
 
 - v0.1: MVP mic-only, Linux, instalador cross-platform, 3 modos.
-- v0.2 (atual): TTS por voz (Piper, PT-BR); automacao best-effort do atalho no
+- v0.2: TTS por voz (Piper, PT-BR); automacao best-effort do atalho no
   Wayland/KDE (com fallback manual); runtime Windows validado; correcoes
   cross-platform (mic por nome, tags de modelo, keep-alive no boot).
-- v0.3: modo reuniao (audio do sistema via PipeWire/WASAPI); RAG sobre notas.
+- v0.3 (atual): **memoria + RAG + resumos + prompts editaveis** — busca semantica nas
+  notas (`consultar`), memoria automatica + explicita (`lembrar`), resumos de atividade
+  dia/semana/mes (`resumir`), continuidade de conversa na sessao; embedding na CPU via
+  `fastembed` (VRAM intacta); prompts (persona/tom/regras) em `prompts.toml` editavel.
+- v0.4: modo reuniao (audio do sistema via PipeWire/WASAPI).
 
 ## Licenca
 
