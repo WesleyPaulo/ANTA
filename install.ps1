@@ -61,5 +61,16 @@ uv pip install -r "$RepoDir\requirements.txt"
 # sistema, quebrando com ModuleNotFoundError. --no-deps: as deps ja vieram acima.
 uv pip install -e "$RepoDir" --no-deps
 
+# Sanity: o editable install pode "dar certo" e mesmo assim nao importar (ja aconteceu:
+# checkout com a pasta como "ANTA" em vez de "anta" -> MAPPING vazio). Falhar aqui, alto.
+& "$RepoDir\.venv\Scripts\python.exe" -c "import anta" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Warn "o pacote 'anta' foi instalado mas NAO importa."
+    Warn "Causa comum no Windows: a pasta do pacote esta com o case errado (ex.: 'ANTA')."
+    Warn "Confira com:  .\.venv\Scripts\python.exe -c `"import os; print([d for d in os.listdir('.') if d.lower()=='anta'])`""
+    Warn "Se sair 'ANTA', renomeie em dois passos:  Rename-Item .\ANTA anta_tmp ; Rename-Item .\anta_tmp anta"
+    throw "instalacao incompleta: 'import anta' falhou."
+}
+
 Log "tudo pronto. Abrindo o instalador (escolha o modo e o microfone)..."
 & "$RepoDir\.venv\Scripts\python.exe" -m anta

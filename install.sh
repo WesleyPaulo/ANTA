@@ -98,5 +98,14 @@ VIRTUAL_ENV="$REPO_DIR/.venv" uv pip install -r "$REPO_DIR/requirements.txt"
 # quebrando com ModuleNotFoundError. --no-deps: as deps ja vieram acima.
 VIRTUAL_ENV="$REPO_DIR/.venv" uv pip install -e "$REPO_DIR" --no-deps
 
+# Sanity: o editable install pode "dar certo" e mesmo assim nao importar (ja aconteceu:
+# checkout com a pasta como "ANTA" em vez de "anta" -> MAPPING vazio). Falhar aqui, alto.
+if ! "$REPO_DIR/.venv/bin/python" -c "import anta" 2>/dev/null; then
+  err "o pacote 'anta' foi instalado mas NAO importa - instalacao incompleta."
+  err "Confira o nome real da pasta do pacote (deve ser 'anta', minusculo):"
+  err "  ls -d $REPO_DIR/anta"
+  exit 1
+fi
+
 log "tudo pronto. Abrindo o instalador (escolha o modo e o microfone)..."
 exec "$REPO_DIR/.venv/bin/python" -m anta

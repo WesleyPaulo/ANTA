@@ -13,5 +13,17 @@ anta = "anta.__main__:main"
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-include = ["anta*"]
+# Lista EXPLICITA (nao `packages.find`) de proposito: a descoberta automatica com
+# include = ["anta*"] casa por padrao case-SENSITIVE. Num checkout Windows onde a pasta
+# saiu como "ANTA" (git com core.ignorecase), ela nao casava nada e o build gerava um
+# editable install com MAPPING VAZIO — instalacao "bem-sucedida" e `import anta` quebrado.
+# Com a lista explicita, um pacote ausente/renomeado vira ERRO de build, alto e claro.
+[tool.setuptools]
+packages = [
+    "anta",
+    "anta.actions",
+    "anta.actions.handlers",
+    "anta.core",
+    "anta.installer",
+    "anta.platform",
+]
