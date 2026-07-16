@@ -6,3 +6,4 @@ obsidian_vault = ""           # caminho do vault para salvar notas/documentos
 tts = false                   # true = responder tambem por voz (Piper)
 tts_voice = ""                # caminho do .onnx da voz (vazio = voz PT-BR padrao)
 tts_output = ""               # NOME do device de saida de audio (vazio = padrao)
+rag = true                    # false = desliga busca/memoria em notas (RAG na CPU)

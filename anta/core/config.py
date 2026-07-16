@@ -47,6 +47,7 @@ class UserConfig:
     tts: bool = False
     tts_voice: str | None = None       # caminho do .onnx; None = voz padrao baixada
     tts_output: str | None = None      # NOME do device de saida; None = padrao
+    rag: bool = True                   # busca/memoria em notas (RAG na CPU via fastembed)
 
     def mode_or_default(self, modes: list[Mode]) -> Mode:
         """Resolve o Mode correspondente, caindo no mais leve se o nome sumir."""
@@ -87,6 +88,7 @@ def load_user_config(path: str | Path | None = None) -> UserConfig:
         tts=bool(data.get("tts", False)),
         tts_voice=_clean(data.get("tts_voice", "")),
         tts_output=_clean(data.get("tts_output", "")),
+        rag=bool(data.get("rag", True)),  # ausente (config antiga) -> ligado
     )
 
 
@@ -109,6 +111,7 @@ def save_user_config(cfg: UserConfig, path: str | Path | None = None) -> Path:
         f"tts = {'true' if cfg.tts else 'false'}",
         f"tts_voice = {_toml_str(cfg.tts_voice or '')}",
         f"tts_output = {_toml_str(cfg.tts_output or '')}",
+        f"rag = {'true' if cfg.rag else 'false'}",
         "",
     ]
     p.write_text("\n".join(lines), encoding="utf-8")

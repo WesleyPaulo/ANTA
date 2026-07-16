@@ -22,4 +22,8 @@ pynput>=1.7
 # onnxruntime roda na CPU (nao toca a VRAM) e so e importado ao falar.
 piper-tts>=1.3
 
+# RAG / memoria (so quando rag=true): embedding multilingue na CPU via onnxruntime.
+# NAO toca a VRAM (Principio 1: VRAM exclusiva do LLM). Importado sob demanda.
+fastembed>=0.3
+
 # Externos (NAO via pip): Ollama (ollama.com) e pandoc (geracao de documentos)

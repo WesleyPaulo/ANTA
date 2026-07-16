@@ -23,7 +23,8 @@ class TestLoadModes(unittest.TestCase):
 class TestUserConfigRoundTrip(unittest.TestCase):
     def test_salva_e_le(self):
         cfg = UserConfig(mode="pesado", mic_device="Yeti USB",
-                         hotkey="ctrl+space", obsidian_vault="/tmp/vault", tts=True)
+                         hotkey="ctrl+space", obsidian_vault="/tmp/vault", tts=True,
+                         rag=False)
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "config.toml"
             save_user_config(cfg, path)
@@ -33,6 +34,7 @@ class TestUserConfigRoundTrip(unittest.TestCase):
         self.assertEqual(got.hotkey, "ctrl+space")
         self.assertEqual(got.obsidian_vault, "/tmp/vault")
         self.assertTrue(got.tts)
+        self.assertFalse(got.rag)  # round-trip preserva o toggle
 
     def test_vazio_vira_none(self):
         cfg = UserConfig(mic_device=None, obsidian_vault=None)
@@ -48,6 +50,7 @@ class TestUserConfigRoundTrip(unittest.TestCase):
             got = load_user_config(Path(d) / "nao-existe.toml")
         self.assertEqual(got.mode, "leve")
         self.assertFalse(got.tts)
+        self.assertTrue(got.rag)  # ausente -> ligado por padrao
 
     def test_mode_or_default_cai_no_mais_leve(self):
         modes = load_modes()
