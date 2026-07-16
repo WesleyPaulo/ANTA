@@ -2,25 +2,34 @@
 # Cada modo é uma entrada declarativa. O instalador lê este arquivo,
 # detecta a VRAM da máquina e recomenda/bloqueia modos com base em `vram_gb`.
 # Adicionar um novo tier = adicionar um bloco aqui. Nenhum código muda.
+#
+# vram_gb   = GATE: card mínimo recomendado (o instalador libera/bloqueia por ele).
+# vram_real = consumo ESTIMADO do LLM já carregado (Ollama Q4_K_M padrão, ctx ~4k).
+#             STT e embedder (RAG) rodam na CPU e NÃO contam aqui (Princípio 1).
+#             É estimativa — meça na sua máquina com `ollama ps` / `nvidia-smi`.
+#             O gate deixa folga sobre o vram_real p/ KV cache maior + VRAM do desktop.
 
 modes:
   leve:
     label: "Modo Leve"
-    vram_gb: 4
-    llm: "qwen3:4b"          # tag do modelo no Ollama
-    stt: "turbo"             # faster-whisper: large-v3-turbo (int8)
+    vram_gb: 4                # gate: card mínimo
+    vram_real: "~3.3-3.6 GB"  # uso estimado do LLM carregado
+    llm: "qwen3:4b"           # tag do modelo no Ollama (~2.5GB em Q4_K_M)
+    stt: "turbo"              # faster-whisper: large-v3-turbo (int8, CPU)
     description: "Comandos rápidos e notas curtas. Roda folgado em 4GB+."
 
   pesado:
     label: "Modo Pesado"
     vram_gb: 8
-    llm: "qwen3:8b"          # ~5.2GB; cabe folgado em 8GB (STT fica na CPU)
+    vram_real: "~6-6.5 GB"
+    llm: "qwen3:8b"           # ~5.2GB em Q4_K_M; cabe folgado em 8GB (STT fica na CPU)
     stt: "large-v3"
     description: "Geração de documentos e transcrição precisa em PT-BR. 8GB+."
 
   ultra:
     label: "Modo Ultra Esforço"
     vram_gb: 12
-    llm: "qwen3:14b"        # ~9.3GB; cabe em 12GB
+    vram_real: "~10-11 GB"
+    llm: "qwen3:14b"          # ~9.3GB em Q4_K_M; cabe em 12GB
     stt: "large-v3"
     description: "Máxima qualidade. Requer GPU de 12GB+ de VRAM."

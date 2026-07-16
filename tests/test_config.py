@@ -19,6 +19,13 @@ class TestLoadModes(unittest.TestCase):
         m = modes[0]
         self.assertTrue(m.key and m.label and m.llm and m.stt)
 
+    def test_vram_real_carrega(self):
+        # a coluna vram_real (uso estimado) flui pelo load_modes; e opcional (str)
+        modes = load_modes()
+        for m in modes:
+            self.assertIsInstance(m.vram_real, str)
+        self.assertTrue(modes[0].vram_real)  # os modos que shipamos tem o campo
+
 
 class TestUserConfigRoundTrip(unittest.TestCase):
     def test_salva_e_le(self):

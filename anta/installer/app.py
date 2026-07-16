@@ -81,13 +81,15 @@ class InstallerApp(App):
     def on_mount(self) -> None:
         table: DataTable = self.query_one("#modes", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Modo", "VRAM", "Status", "LLM", "STT", "Descricao")
+        # "VRAM min" = gate (card minimo); "VRAM uso~" = consumo estimado do LLM carregado.
+        table.add_columns("Modo", "VRAM min", "VRAM uso~", "Status", "LLM", "STT", "Descricao")
         for m in self._modes:
             st = status_for(m.vram_gb, self._vram)
             color = _COLOR[st]
             table.add_row(
                 f"[{color}]{m.label}[/]",
                 f"{m.vram_gb:.0f}GB",
+                m.vram_real or "-",
                 f"[{color}]{_MARK[st]}[/]",
                 m.llm, m.stt, m.description,
             )

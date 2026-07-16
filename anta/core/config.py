@@ -13,10 +13,11 @@ import yaml
 class Mode:
     key: str
     label: str
-    vram_gb: float
+    vram_gb: float          # gate: card minimo recomendado
     llm: str
     stt: str
     description: str
+    vram_real: str = ""     # consumo estimado do LLM carregado (opcional; so exibicao)
 
 
 def load_modes(path: str | Path = "modes.yaml") -> list[Mode]:
@@ -30,6 +31,7 @@ def load_modes(path: str | Path = "modes.yaml") -> list[Mode]:
             llm=m["llm"],
             stt=m["stt"],
             description=m.get("description", ""),
+            vram_real=str(m.get("vram_real", "")),  # opcional: tier sem ele ainda carrega
         ))
     # ordena do mais leve pro mais pesado
     return sorted(modes, key=lambda x: x.vram_gb)

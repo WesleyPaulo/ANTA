@@ -134,6 +134,9 @@ uma restricao real de hardware (GPU de 8GB).
 ### 8. Instalador — `anta/installer/app.py`
 - Selecao de linha (modo) + dropdown de microfone
   (`capture.list_input_devices`). Bloquear modos "vermelho".
+- A tabela mostra `vram_gb` (**VRAM min** — gate que libera/bloqueia) e `vram_real`
+  (**VRAM uso~** — consumo estimado do LLM carregado, so exibicao). Ambos vem de
+  `modes.yaml`; `vram_real` e opcional no `Mode` (tier sem ele ainda carrega).
 - Ao confirmar: `ollama pull <llm>`, baixar o modelo Whisper, baixar o modelo de
   embedding se `rag` (mesmo padrao do STT, best-effort), `save_user_config`,
   `prompts.write_default_prompts()` (cria o `prompts.toml` editavel se ausente),
