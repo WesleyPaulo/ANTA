@@ -9,9 +9,11 @@ Fluxo:
 """
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 
+from rich.markup import escape
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
@@ -29,6 +31,21 @@ from anta.platform.hotkey import default_command, instructions_for, setup_hotkey
 _COLOR = {"verde": "green", "amarelo": "yellow", "vermelho": "red"}
 _MARK = {"verde": "OK", "amarelo": "apertado", "vermelho": "nao roda"}
 _DEFAULT_MIC = "(padrao do sistema)"
+
+# Sequencias ANSI (CSI e OSC). O `ollama pull` desenha o progresso com elas mesmo
+# escrevendo num pipe: sem limpar, o log vira lixo — e pior, um `[?25l` cru chegaria
+# num RichLog com markup=True e o Rich tentaria interpretar como tag.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+
+def _log_lines(raw: str) -> list[str]:
+    """Saida crua de um subprocesso -> linhas seguras pro RichLog.
+
+    Tira ANSI, quebra tambem no \\r (o progresso redesenha a linha sem \\n) e escapa
+    a markup do Rich — o texto vem de fora, nao e nosso pra interpretar.
+    """
+    limpo = _ANSI.sub("", raw)
+    return [escape(p.strip()) for p in re.split(r"[\r\n]", limpo) if p.strip()]
 
 
 class InstallerApp(App):
@@ -145,20 +162,31 @@ class InstallerApp(App):
         self._install(mode, family_key, mic_name, tts_on)
 
     def _run_stream(self, argv: list[str]) -> int:
-        """Roda um comando, transmitindo stdout para o log. Retorna returncode."""
+        """Roda um comando, transmitindo stdout para o log. Retorna returncode.
+
+        `encoding`/`errors` sao EXPLICITOS de proposito: com `text=True` sozinho o
+        Python decodifica pelo locale (cp1252 no Windows), e o spinner braille do
+        `ollama pull` (U+280F = b'\\xe2\\xa0\\x8f') levanta UnicodeDecodeError no meio
+        do download — matando o worker e deixando o LLM pela metade, sem erro claro.
+        No Linux nunca aparece (locale UTF-8). Ver tests/test_installer_stream.py.
+        """
         try:
             proc = subprocess.Popen(
                 argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                encoding="utf-8", errors="replace",
             )
         except OSError as e:
             self.call_from_thread(self._log, f"[red]falha ao rodar {argv[0]}: {e}[/]")
             return 1
         assert proc.stdout is not None
-        for line in proc.stdout:
-            line = line.rstrip()
-            if line:
-                self.call_from_thread(self._log, f"  {line}")
-        return proc.wait()
+        anterior = None
+        with proc:  # fecha o pipe e da wait() no fim (sem isso, vaza o stdout)
+            for raw in proc.stdout:
+                for line in _log_lines(raw):
+                    if line != anterior:  # o progresso redesenha a mesma linha varias vezes
+                        anterior = line
+                        self.call_from_thread(self._log, f"  {line}")
+        return proc.returncode
 
     @work(thread=True, exclusive=True)
     def _install(self, mode, family_key: str, mic_name: str | None, tts_on: bool) -> None:
