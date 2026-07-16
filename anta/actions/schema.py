@@ -77,3 +77,25 @@ class Decisao(BaseModel):
     # Canal AUTOMATICO de memoria: preenchido so quando ha um fato duravel/reutilizavel
     # sobre o usuario a lembrar junto da acao (senao None). Nao repete o comando.
     memoria: str | None = None
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs):  # type: ignore[override]
+        """Schema com `acao` sempre em `required` — o discriminador nao e opcional.
+
+        Ter default (`acao: Literal["resumir"] = "resumir"`) e otimo em Python
+        (`Responder(texto="ok")`), mas o pydantic entao deixa `acao` FORA de `required`.
+        O Ollama compila esse schema numa gramatica GBNF, e campo fora de `required`
+        vira opcional na gramatica: o modelo podia omitir o discriminador — e `Resumir`,
+        cujos campos tem todos default, virava o valido-e-inutil `{"escolha": {}}`.
+        Ai o pydantic nao consegue discriminar e a tentativa se perde.
+
+        Corrigimos no schema em vez de tirar os defaults pra nao poluir todas as
+        construcoes em Python com `acao="..."` redundante.
+        """
+        schema = super().model_json_schema(*args, **kwargs)
+        for definicao in schema.get("$defs", {}).values():
+            if "acao" in definicao.get("properties", {}):
+                obrigatorios = definicao.setdefault("required", [])
+                if "acao" not in obrigatorios:
+                    obrigatorios.insert(0, "acao")
+        return schema

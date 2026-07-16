@@ -88,5 +88,33 @@ class TestCanalMemoria(unittest.TestCase):
         self.assertEqual(d.memoria, "cliente: Ricardo")
 
 
+class TestSchemaParaGramatica(unittest.TestCase):
+    """O schema vira gramatica GBNF no Ollama (structured='json_schema'), e campo fora de
+    `required` vira OPCIONAL na gramatica. Como todo `acao` tem default, o pydantic o
+    deixava fora de required: o modelo podia omitir o discriminador, e `Resumir` (todos os
+    campos com default) degenerava no valido-e-inutil {"escolha": {}}."""
+
+    def test_acao_e_obrigatorio_em_todas_as_acoes(self):
+        defs = Decisao.model_json_schema()["$defs"]
+        self.assertEqual(len(defs), 9)
+        for nome, d in defs.items():
+            self.assertIn("acao", d.get("required", []), f"{nome}: 'acao' pode ser omitido")
+
+    def test_resumir_nao_aceita_objeto_vazio(self):
+        req = Decisao.model_json_schema()["$defs"]["Resumir"]["required"]
+        self.assertEqual(req, ["acao"])  # antes: [] -> {"escolha": {}} passava na gramatica
+
+    def test_default_em_python_continua_funcionando(self):
+        # o fix e so no schema: nao queremos poluir o codigo com acao='responder'
+        self.assertEqual(Responder(texto="oi").acao, "responder")
+        self.assertEqual(Resumir().periodo, "dia")
+
+    def test_campos_realmente_opcionais_seguem_opcionais(self):
+        # so o discriminador e forcado; formato/periodo tem default de verdade
+        defs = Decisao.model_json_schema()["$defs"]
+        self.assertNotIn("formato", defs["CriarDocumento"]["required"])
+        self.assertNotIn("periodo", defs["Resumir"]["required"])
+
+
 if __name__ == "__main__":
     unittest.main()

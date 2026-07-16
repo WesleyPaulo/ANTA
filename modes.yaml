@@ -6,8 +6,10 @@
 # tiers      = gate (vram_gb) + STT + descrição do PERFIL de uso (igual em toda família).
 #   vram_gb  = GATE: card mínimo recomendado (o instalador libera/bloqueia por ele).
 # families   = cada família só troca o modelo por tier + o modo de saída estruturada.
-#   structured = "tools" (function-calling) | "json". Famílias SEM tool-calling nativo
-#                (Gemma, DeepSeek) precisam de "json"; Qwen3/Llama usam "tools".
+#   structured = "json_schema" (padrão) | "json" | "tools". NÃO use "tools" com Ollama:
+#                ele ignora `tool_choice`, então a ferramenta nunca é obrigatória e o
+#                modelo simplesmente conversa. "json_schema" vira gramática GBNF no
+#                llama.cpp — a saída não pode fugir do schema. Ver brain._instructor_mode.
 #   vram_real  = consumo ESTIMADO do LLM já carregado (Ollama Q4_K_M). STT/embedder são
 #                CPU e NÃO contam (Princípio 1). Meça com `ollama ps` / `nvidia-smi`.
 # Uma família pode OMITIR um tier (ex.: DeepSeek não tem 'batata': nada cabe em 1GB).
@@ -52,7 +54,7 @@ tiers:
 families:
   qwen3:
     label: "Qwen3"
-    structured: "tools"       # bom tool-calling
+    structured: "json_schema"  # gramatica GBNF: a saida nao pode fugir do schema
     models:
       batata:       {llm: "qwen3:0.6b", vram_real: "~0.7-1 GB"}
       ultra-leve:   {llm: "qwen3:1.7b", vram_real: "~1.5-1.8 GB"}
@@ -70,7 +72,7 @@ families:
 
   gemma:
     label: "Gemma"
-    structured: "json"        # Gemma nao tem tool-calling nativo -> JSON
+    structured: "json_schema"
     models:
       batata:       {llm: "gemma3:1b",  vram_real: "~1-1.3 GB"}
       ultra-leve:   {llm: "gemma2:2b",  vram_real: "~1.9-2.2 GB"}
@@ -82,7 +84,7 @@ families:
 
   deepseek:
     label: "DeepSeek-R1 (raciocinio)"
-    structured: "json"        # R1 pensa antes de responder -> mais lento; JSON p/ estrutura
+    structured: "json_schema"  # R1 pensa antes de responder -> mais lento
     models:                   # sem 'batata': o menor (1.5b, ~1.5GB) nao cabe em 1GB
       ultra-leve:   {llm: "deepseek-r1:1.5b", vram_real: "~1.4-1.6 GB"}
       leve:         {llm: "deepseek-r1:1.5b", vram_real: "~1.4-1.6 GB"}

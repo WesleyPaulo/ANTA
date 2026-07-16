@@ -44,8 +44,10 @@ gate de VRAM + o STT; a familia troca o modelo (LLM).
 
 - **Gate** = VRAM minima que o instalador exige; o `vram_real` (consumo estimado do LLM) fica
   abaixo, com folga. STT/embedder rodam na CPU e nao contam (a VRAM e so do LLM).
-- **Saida estruturada** por familia: Qwen3 usa tool-calling (`tools`); Gemma e DeepSeek nao tem
-  tool-calling nativo, entao usam JSON (`structured: "json"` no YAML).
+- **Saida estruturada por gramatica** (`structured: "json_schema"`): o schema das acoes vai no
+  `response_format` e o Ollama compila uma gramatica GBNF no llama.cpp — o modelo nao consegue
+  responder fora do schema. Tool-calling **nao** serve aqui: o Ollama ignora `tool_choice`, entao
+  a ferramenta nunca e obrigatoria e o modelo simplesmente conversa.
 - **Raciocinio desligado** no roteamento: o Ollama liga o "thinking" sozinho em todo modelo que
   sabe pensar, e isso quebra o tool-calling (o modelo escreve a chamada como texto). A ANTA pede
   `reasoning_effort: "none"`. Nos tiers leve/normal do Qwen3 usamos `qwen3:4b-instruct` porque o

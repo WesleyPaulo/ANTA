@@ -54,10 +54,25 @@ uma restricao real de hardware (GPU de 8GB).
 
 ### 4. Cerebro — `anta/core/brain.py`
 - `Brain.decide(texto, history) -> Decisao` via `instructor.from_openai(OpenAI(...),
-  mode=_instructor_mode(self.structured))`, `response_model=Decisao`, `temperature=0.1`.
-  `structured` vem do modo/familia: `tools` (Qwen3) ou `json` (Gemma/DeepSeek, sem
-  tool-calling nativo — mandar `tools` pra eles da **HTTP 400**, o `json` e load-bearing).
-  `answer()`/`summarize()` usam client cru (sem instructor).
+  mode=_instructor_mode(self.structured))`, `response_model=Decisao`, `temperature=0.1`,
+  `max_retries=2`. `answer()`/`summarize()` usam client cru (sem instructor).
+- **NUNCA `structured: "tools"` com Ollama** (fica so como escape hatch). O Ollama
+  **ignora `tool_choice`** — o campo nao existe no `ChatCompletionRequest` dele e campo
+  desconhecido e descartado sem erro. Logo a chamada de ferramenta NUNCA e obrigatoria:
+  num "e ai" o modelo so conversa -> `No tool calls found (mode: TOOLS)`, e o
+  `reask_tools` do instructor ainda crasha iterando `tool_calls=None`, matando o retry.
+  Todas as familias usam `json_schema` (default de `_instructor_mode`): o schema vai no
+  `response_format`, o Ollama repassa pro llama.cpp e vira **gramatica GBNF** — a saida
+  nao pode fugir do schema. E o que o `tool_choice` faria, uma camada abaixo, onde
+  funciona. `json` (gramatica JSON generica + schema no prompt) fica de fallback.
+- `Decisao.model_json_schema()` **forca `acao` em `required`** em cada acao. Os defaults
+  (`acao: Literal["resumir"] = "resumir"`) tiram o campo do `required`, e o que nao e
+  required vira OPCIONAL na gramatica: o modelo podia omitir o discriminador e `Resumir`
+  degenerava no valido-e-inutil `{"escolha": {}}`. Corrigido no schema (nao tirando os
+  defaults) pra nao poluir o codigo Python com `acao="..."` redundante.
+- `_texto_solto()`: se o instructor falha e o modelo tinha escrito texto (nao JSON, nao
+  tool call), vira `Responder`. A resposta certa existia, so no envelope errado — jogar
+  fora e mostrar traceback e o pior desfecho.
 - **Raciocinio SEMPRE desligado** (`_SEM_RACIOCINIO = {"reasoning_effort": "none"}` no
   `extra_body` de `decide` e `_complete`). O Ollama LIGA o thinking por padrao em todo
   modelo capaz, e thinking+tools quebra o tool-calling (o modelo emite a chamada como

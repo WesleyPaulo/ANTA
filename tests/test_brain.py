@@ -44,13 +44,16 @@ class TestStripThink(unittest.TestCase):
 
 
 class TestInstructorMode(unittest.TestCase):
-    def test_json_e_tools(self):
+    def test_json_schema_json_e_tools(self):
+        self.assertEqual(_instructor_mode("json_schema"), instructor.Mode.JSON_SCHEMA)
         self.assertEqual(_instructor_mode("json"), instructor.Mode.JSON)
         self.assertEqual(_instructor_mode("tools"), instructor.Mode.TOOLS)
 
-    def test_default_e_tools(self):
-        # qualquer valor desconhecido cai em tools (comportamento atual do Brain)
-        self.assertEqual(_instructor_mode(""), instructor.Mode.TOOLS)
+    def test_default_e_json_schema(self):
+        # o default MUDOU de tools p/ json_schema: o Ollama ignora tool_choice, entao
+        # tools nunca obriga a chamada e o modelo conversa. Ver _instructor_mode.
+        self.assertEqual(_instructor_mode(""), instructor.Mode.JSON_SCHEMA)
+        self.assertEqual(_instructor_mode("qualquer-coisa"), instructor.Mode.JSON_SCHEMA)
 
 
 class TestAnswer(unittest.TestCase):
@@ -194,6 +197,12 @@ class TestConversaViraResponder(unittest.TestCase):
     def test_content_vazio_levanta(self):
         with self.assertRaises(RuntimeError):
             self._brain_que_falha(self._erro("   ")).decide("oi")
+
+    def test_json_quebrado_nao_e_falado(self):
+        # nos modos json/json_schema o content e JSON; se falhou, ta malformado.
+        # Falar '{"escolha": {"acao"' em voz alta e pior que reportar o erro.
+        with self.assertRaises(RuntimeError):
+            self._brain_que_falha(self._erro('{"escolha": {"acao"')).decide("oi")
 
 
 class TestContextoDeTempo(unittest.TestCase):

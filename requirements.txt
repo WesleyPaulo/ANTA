@@ -12,7 +12,12 @@ faster-whisper>=1.0
 
 # Cerebro (saida estruturada)
 pydantic>=2         # schema das acoes (importado direto em actions/schema.py)
-instructor>=1.0
+# Teto proposital: usamos Mode.JSON_SCHEMA contra o Ollama, e o
+# OPENAI_JSON_SCHEMA_PROVIDERS do instructor NAO lista Provider.OLLAMA — o dispatch
+# chega no handler certo, mas por um caminho que nao e contratual. Verificado na 1.15.x
+# (o payload sai com response_format=json_schema). Suba a versao so testando o payload:
+# tests/test_brain.py cobre o mapeamento, mas nao o dispatch interno do instructor.
+instructor>=1.15,<2.0
 openai>=1.30        # cliente apontado para a API do Ollama (localhost:11434/v1)
 
 # Atalho global (X11/Windows). Wayland usa o compositor, nao estas libs.

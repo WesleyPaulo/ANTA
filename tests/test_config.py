@@ -47,9 +47,11 @@ class TestLoadFamilies(unittest.TestCase):
         self.assertIn("qwen3", by_key)
         self.assertIn("gemma", by_key)
         self.assertIn("deepseek", by_key)
-        self.assertEqual(by_key["qwen3"].structured, "tools")
-        self.assertEqual(by_key["gemma"].structured, "json")
-        self.assertEqual(by_key["deepseek"].structured, "json")
+        # 'tools' NAO serve com Ollama (ele ignora tool_choice -> o modelo conversa em
+        # vez de chamar a acao). Toda familia usa gramatica. Ver brain._instructor_mode.
+        for fam in fams:
+            self.assertNotEqual(fam.structured, "tools", f"{fam.key}: tools quebra no Ollama")
+            self.assertIn(fam.structured, ("json_schema", "json"))
 
     def test_modos_herdam_tier_e_familia(self):
         fams = {f.key: f for f in load_families()}
@@ -57,7 +59,7 @@ class TestLoadFamilies(unittest.TestCase):
         self.assertEqual(leve.vram_gb, 4)            # do tier
         self.assertEqual(leve.stt, "turbo")          # do tier
         self.assertEqual(leve.llm, "gemma3:4b")      # do modelo da familia
-        self.assertEqual(leve.structured, "json")    # da familia
+        self.assertEqual(leve.structured, fams["gemma"].structured)  # da familia
         # ordenados por vram_gb
         vrams = [m.vram_gb for m in fams["qwen3"].modes]
         self.assertEqual(vrams, sorted(vrams))

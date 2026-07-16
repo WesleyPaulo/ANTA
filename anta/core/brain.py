@@ -58,15 +58,35 @@ def _texto_solto(erro: Exception) -> str | None:
     except (AttributeError, IndexError, TypeError):
         return None
     limpo = _strip_think(conteudo or "").strip()
+    if limpo.startswith(("{", "[")):
+        return None  # JSON quebrado (modos json/json_schema): falar isso seria pior
     return limpo or None
 
 
 def _instructor_mode(structured: str):
-    """Mapeia o `structured` do modo para o Mode do instructor. 'json' para familias sem
-    tool-calling nativo (Gemma, DeepSeek); 'tools' (default) para Qwen3/Llama/etc."""
+    """Mapeia o `structured` do modo/familia para o Mode do instructor.
+
+    NAO use 'tools' com Ollama (fica so como escape hatch): o Ollama IGNORA
+    `tool_choice` — o campo nem existe no ChatCompletionRequest dele, e campo
+    desconhecido e descartado sem erro. Ou seja, a chamada de ferramenta nunca e
+    obrigatoria: num "e ai" o modelo so conversa -> 'No tool calls found'. E o
+    reask_tools do instructor ainda crasha iterando tool_calls=None, matando o retry.
+
+    - 'json_schema' (DEFAULT): o schema vai no `response_format` e o Ollama repassa pro
+      llama.cpp, que compila uma gramatica GBNF. A saida nao PODE ser outra coisa senao
+      o schema — e o que o tool_choice faria, so que uma camada abaixo, onde funciona.
+    - 'json': gramatica JSON generica + schema no system prompt (o modelo ve as
+      descricoes dos campos, mas a conformidade e so por prompt). Fallback conservador
+      se algum Ollama antigo nao entender o response_format json_schema.
+
+    Os dois modos JSON re-perguntam via reask_md_json, que e None-safe.
+    """
     import instructor
 
-    return instructor.Mode.JSON if structured == "json" else instructor.Mode.TOOLS
+    return {
+        "tools": instructor.Mode.TOOLS,
+        "json": instructor.Mode.JSON,
+    }.get(structured, instructor.Mode.JSON_SCHEMA)
 
 
 class Brain:
