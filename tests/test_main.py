@@ -38,14 +38,18 @@ class _FakeRecorder:
 
 
 class _FakePipeline:
-    def __init__(self, feedback="feito", fail=False, exc=None):
+    def __init__(self, feedback="feito", fail=False, exc=None, progresso=()):
         self.feedback = feedback
         self.fail = fail or exc is not None
         self.exc = exc or RuntimeError("ollama fora")
         self.received = None
+        self.progresso = progresso  # mensagens que o pipeline emite via on_progress
 
-    def run(self, audio):
+    def run(self, audio, on_progress=None):
         self.received = audio
+        for m in self.progresso:
+            if on_progress is not None:
+                on_progress(m)
         if self.fail:
             raise self.exc
         return self.feedback
@@ -98,6 +102,29 @@ class TestSession(unittest.TestCase):
         (erro,) = [m for m in msgs if m.startswith("erro no pipeline")]
         self.assertLess(len(erro), 260)
         self.assertTrue(erro.endswith("..."))
+
+    def test_progresso_do_pipeline_chega_ao_usuario(self):
+        # sem isso o fluxo audio->texto->acao e caixa preta: quando a ANTA responde
+        # algo estranho, nao da pra saber se ela ouviu errado ou decidiu errado
+        pipe = _FakePipeline(feedback="ok", progresso=['ouvi: "oi"', "acao: responder"])
+        s, msgs = self._make(_FakeRecorder(audio="A"), pipe)
+        s.toggle()
+        s.toggle()
+        self.assertIn('ouvi: "oi"', msgs)
+        self.assertIn("acao: responder", msgs)
+        self.assertLess(msgs.index('ouvi: "oi"'), msgs.index("ok"))  # antes do feedback
+
+    def test_avisa_que_voltou_a_ouvir(self):
+        s, msgs = self._make(_FakeRecorder(audio="A"), _FakePipeline(feedback="ok"))
+        s.toggle()
+        s.toggle()
+        self.assertEqual(msgs[-1], "pronto — aperte o atalho para falar de novo.")
+
+    def test_avisa_que_voltou_a_ouvir_mesmo_com_erro(self):
+        s, msgs = self._make(_FakeRecorder(audio="A"), _FakePipeline(fail=True))
+        s.toggle()
+        s.toggle()
+        self.assertEqual(msgs[-1], "pronto — aperte o atalho para falar de novo.")
 
 
 class TestShortErr(unittest.TestCase):

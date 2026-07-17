@@ -89,14 +89,18 @@ class Session:
             return
         self.notify("processando...")
         try:
-            feedback = self.pipeline.run(audio)
+            feedback = self.pipeline.run(audio, on_progress=self.notify)
         except Exception as e:  # noqa: BLE001
             import traceback
 
             traceback.print_exc()  # completo no console, pra diagnostico
             self.notify(f"erro no pipeline: {_short_err(e)}")
-            return
-        self.notify(feedback)
+        else:
+            self.notify(feedback)
+        finally:
+            # o loop ja volta a esperar o atalho quando toggle() retorna, mas nada
+            # dizia isso: o usuario ficava sem saber se a ANTA morreu ou esta pronta.
+            self.notify("pronto — aperte o atalho para falar de novo.")
 
 
 def run() -> None:

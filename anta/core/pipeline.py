@@ -15,6 +15,7 @@ from anta.actions.executor import ExecContext, execute
 from anta.actions.helpers import write_memory_note
 from anta.actions.schema import Lembrar
 from anta.core.brain import Brain
+from anta.core.capture import MIN_SECONDS, SAMPLE_RATE
 from anta.core.stt import Transcriber
 
 HISTORY_TURNS = 5  # janela de conversa (RAM); cap curto p/ nao estourar contexto do 4B
@@ -77,12 +78,24 @@ class Pipeline:
 
         threading.Thread(target=_job, daemon=True).start()
 
-    def run(self, audio) -> str:
-        """Recebe o audio ja gravado e devolve a mensagem de feedback."""
+    def run(self, audio, on_progress=None) -> str:
+        """Recebe o audio ja gravado e devolve a mensagem de feedback.
+
+        `on_progress(msg)` (opcional) recebe os passos intermediarios — hoje o que o
+        STT ouviu. Sem isso o fluxo audio->texto->acao e uma caixa preta: quando a ANTA
+        responde algo estranho, nao da pra saber se ela ouviu errado ou decidiu errado.
+        """
+        segundos = len(audio) / SAMPLE_RATE
+        if segundos < MIN_SECONDS:
+            return f"Gravacao curta demais ({segundos:.1f}s) — nao deu tempo de falar."
         texto = self.transcriber.transcribe(audio)
         if not texto:
             return "Nao entendi — nada foi transcrito."
+        if on_progress is not None:
+            on_progress(f'ouvi: "{texto}"')
         decisao = self.brain.decide(texto, list(self._history))
+        if on_progress is not None:
+            on_progress(f"acao: {self._rotulo(decisao)}")
         feedback = execute(decisao, self.ctx)
         # canal AUTOMATICO de memoria: grava o fato duravel sinalizado pelo LLM.
         # Pula quando a acao ja e Lembrar (o handler ja gravou) -> evita duplicata.

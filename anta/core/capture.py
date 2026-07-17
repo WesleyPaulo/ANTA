@@ -15,6 +15,10 @@ import numpy as np
 SAMPLE_RATE = 16000       # Whisper espera 16kHz mono
 MAX_SECONDS = 60          # corte de seguranca: atalho esquecido apertado
 _MAX_SAMPLES = SAMPLE_RATE * MAX_SECONDS
+# Piso: abaixo disso nao ha fala, e o Whisper ALUCINA em audio curto/silencio (devolve
+# frases plausiveis que nunca foram ditas). Melhor dizer "curto demais" do que mandar
+# uma alucinacao pro LLM e responder qualquer coisa com confianca.
+MIN_SECONDS = 0.4
 
 
 def _input_devices():
