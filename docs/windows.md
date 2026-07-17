@@ -57,6 +57,22 @@ daemon no autostart (`HKCU\...\Run`).
 ```
 (ou `.\.venv\Scripts\python.exe -m anta run` — equivalente)
 
+#### Digitar só `anta run`, de qualquer pasta
+
+O `anta.exe` já existe; falta o diretório dele no PATH do usuário:
+
+```powershell
+$s = "C:\PROJETOS\ANTA\.venv\Scripts"     # ajuste se o repo estiver noutro lugar
+$p = [Environment]::GetEnvironmentVariable('Path','User')
+if ($p -notlike "*$s*") { [Environment]::SetEnvironmentVariable('Path', "$p;$s", 'User') }
+```
+
+Abra um terminal **novo** e `anta run` / `anta mic` funcionam de qualquer lugar.
+
+> **Não** use `setx PATH "%PATH%;..."`: o `setx` trunca em 1024 caracteres e expande as
+> variáveis, o que corrompe/apaga o PATH. O bloco acima escreve só o escopo do usuário,
+> sem expandir.
+
 Deixe a janela aberta. Ela:
 - carrega o Whisper (CPU) e **fixa o LLM na VRAM** (keep-alive no boot);
 - passa a ouvir **`ctrl+alt+space`** in-process (via `pynput`);
@@ -72,7 +88,32 @@ decide a ação e executa. Exemplos: *"cria uma nota chamada ideias: ..."*, *"ad
 tarefa comprar café até sexta"*, *"o que anotei sobre o contrato?"*, *"resumo da semana"*,
 *"abre o obsidian"*.
 
-Notas e documentos caem no vault (`obsidian_vault` no `config.toml`, ou `~/anta-notas`).
+### 5. Onde ficam as coisas
+
+Sem `obsidian_vault` configurado, o vault padrão é `C:\Users\<voce>\anta-notas`:
+
+```
+C:\Users\<voce>\anta-notas\
+├── <titulo>.md      notas (criar_nota) e documentos (criar_documento)
+├── tarefas.md       adicionar_tarefa acrescenta uma linha aqui
+├── memoria/         lembrar + o canal automático de memória
+└── resumos/         resumir (dia/semana/mês)
+```
+
+Para usar seu vault real do Obsidian, edite `%APPDATA%\anta\config.toml`:
+
+```toml
+obsidian_vault = "C:/Users/<voce>/Documents/MeuVault"   # barras normais
+```
+
+O RAG (`consultar`) indexa esse vault — apontá-lo pras suas notas de verdade é o que faz
+a busca semântica valer a pena. Config e estado ficam em `%APPDATA%\anta\`:
+`config.toml`, `prompts.toml`, `index/` (RAG), `embeddings/` (modelo do embedder).
+
+> **`prompts.toml`**: cada campo comentado segue o padrão do código (que melhora a cada
+> versão); ao descomentar, aquele campo congela no que você escreveu. Se você instalou
+> antes de 2026-07-16, o arquivo saiu com uma **cópia** dos padrões e por isso ignora as
+> melhorias — apague-o (`del %APPDATA%\anta\prompts.toml`) para voltar a acompanhar.
 
 ## Notas e limitações
 
