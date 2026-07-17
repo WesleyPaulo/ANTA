@@ -16,7 +16,7 @@ from anta.core.brain import Brain, _instructor_mode, _strip_think
 from anta.core.prompts import Prompts, now_line
 
 _PROMPTS = Prompts(persona="PERSONA_X", decide="DECIDE_X", answer="ANSWER_X",
-                   resumo="RESUMO_X", escrita="ESCRITA_X")
+                   resumo="RESUMO_X", escrita="ESCRITA_X", busca="BUSCA_X")
 
 
 def _fake_client(content="resp", capture=None, canned=None, raise_on_extra=False):
@@ -229,6 +229,29 @@ class TestContextoDeTempo(unittest.TestCase):
         b._raw_client = _fake_client(content="r", capture=cap)
         b.answer("p", "ctx")
         self.assertIn("Contexto de tempo", cap["messages"][0]["content"])
+
+
+class TestAnswerWeb(unittest.TestCase):
+    """A busca sintetizava com o prompt das NOTAS, que manda dizer 'nao encontrei' quando o
+    contexto nao responde. Com 3 resultados na mao, isso jogava fora o que foi lido."""
+
+    def test_usa_o_prompt_de_busca_e_nao_o_das_notas(self):
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._raw_client = _fake_client(content="sintese", capture=cap)
+        b.answer_web("artigos de VLM", "T: trecho (http://ex.com)")
+        system = cap["messages"][0]["content"]
+        self.assertIn("BUSCA_X", system)
+        self.assertNotIn("ANSWER_X", system)
+
+    def test_resultados_e_pedido_chegam(self):
+        cap = {}
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._raw_client = _fake_client(content="s", capture=cap)
+        b.answer_web("artigos de VLM", "T: trecho (http://ex.com)")
+        user = cap["messages"][-1]["content"]
+        self.assertIn("http://ex.com", user)
+        self.assertIn("artigos de VLM", user)
 
 
 class TestWrite(unittest.TestCase):

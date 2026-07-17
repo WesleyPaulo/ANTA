@@ -220,6 +220,32 @@ class TestExecutor(unittest.TestCase):
         self.assertIn("Fontes: http://exemplo.com/a", msg)   # rodape com as URLs
         self.assertIn("trecho relevante", captura["contexto"])  # contexto = resultados
 
+    def test_busca_usa_o_prompt_da_web_e_nao_o_das_notas(self):
+        """Regressao real: a busca por artigos de VLM trouxe 3 paginas e a ANTA respondeu
+        'Nao encontrou.' — e listou as fontes embaixo, contradizendo a si mesma. Culpa do
+        prompt: o handler sintetizava com o ANSWER do RAG, que manda dizer 'nao encontrei'
+        quando o contexto nao responde. Resultado de busca quase nunca responde ao pe da
+        letra; o prompt BUSCA (via ctx.answer_web) e outro."""
+        resultados = [Result("T", "trecho", "http://ex.com/a")]
+        chamados = []
+        ctx = ExecContext(
+            vault=Path(self._tmp.name), web_search=lambda q: resultados,
+            answer=lambda p, c: chamados.append("answer") or "NAO ENCONTROU",
+            answer_web=lambda p, c: chamados.append("answer_web") or "Os resultados cobrem X.",
+        )
+        msg = execute(_dec(BuscarWeb(consulta="artigos de VLM")), ctx)
+        self.assertEqual(chamados, ["answer_web"])   # o do RAG nao e chamado
+        self.assertIn("Os resultados cobrem X.", msg)
+        self.assertNotIn("NAO ENCONTROU", msg)
+
+    def test_busca_sem_answer_web_cai_no_answer(self):
+        # retrocompat: ctx sem answer_web (testes, web off no wiring) ainda sintetiza
+        resultados = [Result("T", "trecho", "http://ex.com/a")]
+        ctx = ExecContext(vault=Path(self._tmp.name), web_search=lambda q: resultados,
+                          answer=lambda p, c: "sintese pelo answer")
+        self.assertIn("sintese pelo answer",
+                      execute(_dec(BuscarWeb(consulta="x")), ctx))
+
 
 if __name__ == "__main__":
     unittest.main()

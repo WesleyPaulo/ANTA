@@ -119,11 +119,27 @@ DECIDE = (
     "- 'quanto e 15% de 200?' -> responder(texto='30')"
 )
 
-# Resposta ancorada (consulta RAG nas notas OU busca na web).
+# Resposta ancorada nas NOTAS do usuario (RAG). Aqui "nao encontrei" e uma resposta legitima:
+# se a nota nao existe, inventar seria pior. Para a web, ver BUSCA — la a regra e outra.
 ANSWER = (
     "Responda a pergunta do usuario usando SOMENTE o contexto fornecido (trechos das notas "
-    "dele ou resultados de uma busca). Se o contexto nao contiver a resposta, diga que nao "
-    "encontrou — nao invente. Seja curto e direto."
+    "dele). Se o contexto nao contiver a resposta, diga que nao encontrou — nao invente. "
+    "Seja curto e direto."
+)
+
+# Sintese de uma busca na web. Prompt SEPARADO do ANSWER de proposito: com o prompt das
+# notas, uma busca que trouxe 3 paginas uteis sobre o tema virava "Nao encontrou." — e o
+# handler ainda listava as fontes embaixo, contradizendo a propria resposta. Resultado de
+# busca quase nunca responde ao pe da letra; o valor esta em dizer o que ha ali.
+BUSCA = (
+    "Voce recebe resultados de uma busca na web (titulo, trecho e link). Sintetize, em 2 a "
+    "4 frases, o que eles trazem sobre o pedido do usuario. Use SO os resultados: nao "
+    "invente fatos nem links.\n"
+    "Os links serao mostrados ao usuario logo abaixo da sua resposta. Entao NAO responda "
+    "apenas 'nao encontrei' quando ha resultados: diga o que eles DE FATO cobrem e o que "
+    "serve para o pedido, mesmo que so em parte. Se a busca trouxe material introdutorio "
+    "onde se pediu algo especifico, diga isso com todas as letras — e util saber. So diga "
+    "que nao achou nada quando os resultados nao tiverem relacao nenhuma com o assunto."
 )
 
 # Sintese de um resumo de atividade.
@@ -140,6 +156,7 @@ DEFAULTS: dict[str, str] = {
     "answer": ANSWER,
     "resumo": RESUMO,
     "escrita": ESCRITA,
+    "busca": BUSCA,
 }
 
 
@@ -150,6 +167,7 @@ class Prompts:
     answer: str = ANSWER
     resumo: str = RESUMO
     escrita: str = ESCRITA
+    busca: str = BUSCA
 
 
 def prompts_path() -> Path:

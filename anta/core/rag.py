@@ -76,10 +76,15 @@ class Embedder:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             # O fastembed avisa que o MiniLM passou a usar mean pooling no lugar do CLS.
             # E o comportamento CERTO (o sentence-transformers original usa mean pooling) e
-            # nao ha nada a fazer — o aviso so polui o console do usuario no meio de um
-            # comando de voz. O Index ja se reconstroi sozinho se modelo/dim mudarem.
+            # nao ha nada a fazer — o aviso so polui o console no meio de um comando de voz.
+            # O Index ja se reconstroi sozinho se modelo/dim mudarem.
+            #
+            # Filtro por MENSAGEM, nao por `module`: o fastembed emite o warning com um
+            # stacklevel que aponta pro CHAMADOR, entao o `module` que o filtro enxerga e
+            # "anta.core.rag" — filtrar por module="fastembed.*" nao casava nada (ja tentei).
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=UserWarning, module="fastembed.*")
+                warnings.filterwarnings("ignore", message=".*mean pooling.*",
+                                        category=UserWarning)
                 self._model = TextEmbedding(model_name=self.model_name,
                                             cache_dir=str(self.cache_dir))
         return self._model

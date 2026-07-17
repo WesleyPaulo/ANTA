@@ -18,7 +18,11 @@ def handle(acao: BuscarWeb, ctx: ExecContext) -> str:
     from anta.core.websearch import format_context, sources
 
     contexto = format_context(resultados)
-    resposta = ctx.answer(acao.consulta, contexto) if ctx.answer else contexto
+    # answer_web (prompt BUSCA), nao answer (prompt das NOTAS): com o prompt do RAG, uma
+    # busca que trouxe 3 paginas uteis virava "Nao encontrou." — e as fontes apareciam
+    # logo abaixo, contradizendo a resposta. Cai em answer/contexto se nao houver.
+    sintetizar = ctx.answer_web or ctx.answer
+    resposta = sintetizar(acao.consulta, contexto) if sintetizar else contexto
     if ctx.tts:
         from anta.core.tts import speak  # import preguicoso, como em responder.py
 

@@ -4,13 +4,17 @@ O embedder e falso: mapeia texto -> vetor por palavras-chave, deterministico. As
 testamos chunking, ranking por cosseno, reconcile incremental (mtime/size), persistencia
 e o roteamento de prefixo e5 — tudo na CPU, sem GPU/Ollama/modelo real.
 """
+import sys
 import tempfile
 import unittest
+import unittest.mock
+import warnings
 from pathlib import Path
 
 import numpy as np
 
 from anta.core import rag
+from anta.core.rag import Embedder
 
 _KEYS = ["cafe", "reuniao", "projeto", "prazo"]
 
@@ -239,6 +243,51 @@ class TestPrefixRouting(unittest.TestCase):
         emb.embed_passage(["nota"])
         self.assertEqual(captured[0], ["prazo"])
         self.assertEqual(captured[1], ["nota"])
+
+
+class TestWarningDoFastembed(unittest.TestCase):
+    """O fastembed avisa sobre mean pooling ao carregar o MiniLM e isso vazava no console
+    NO MEIO de um comando de voz. Ja errei este fix uma vez: filtrei por
+    `module="fastembed.*"`, mas o warning e emitido com stacklevel apontando pro CHAMADOR,
+    entao o modulo que o filtro ve e "anta.core.rag". Por isso o teste imita o stacklevel."""
+
+    def _fastembed_falso(self):
+        import types
+
+        mod = types.ModuleType("fastembed")
+
+        def TextEmbedding(model_name=None, cache_dir=None):
+            warnings.warn(f"The model {model_name} now uses mean pooling instead of CLS "
+                          f"embedding. In order to preserve the previous behaviour...",
+                          UserWarning, stacklevel=2)  # <- culpa o chamador, como o real
+            return "MODELO"
+
+        mod.TextEmbedding = TextEmbedding
+        return mod
+
+    def test_nao_vaza_pro_console(self):
+        with unittest.mock.patch.dict(sys.modules, {"fastembed": self._fastembed_falso()}):
+            with warnings.catch_warnings(record=True) as vistos:
+                warnings.simplefilter("always")
+                Embedder(cache_dir=Path(tempfile.mkdtemp())).load()
+        self.assertEqual([str(w.message) for w in vistos], [])
+
+    def test_outros_warnings_do_fastembed_continuam_visiveis(self):
+        # silenciar TUDO esconderia um aviso que importa; so o do mean pooling e ruido
+        import types
+
+        mod = types.ModuleType("fastembed")
+
+        def TextEmbedding(model_name=None, cache_dir=None):
+            warnings.warn("modelo depreciado, sera removido", UserWarning, stacklevel=2)
+            return "MODELO"
+
+        mod.TextEmbedding = TextEmbedding
+        with unittest.mock.patch.dict(sys.modules, {"fastembed": mod}):
+            with warnings.catch_warnings(record=True) as vistos:
+                warnings.simplefilter("always")
+                Embedder(cache_dir=Path(tempfile.mkdtemp())).load()
+        self.assertIn("depreciado", str(vistos[0].message))
 
 
 if __name__ == "__main__":

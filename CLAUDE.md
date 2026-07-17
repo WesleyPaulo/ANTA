@@ -150,9 +150,14 @@ uma restricao real de hardware (GPU de 8GB).
   keyless via `ddgs` (import preguicoso, dep opcional) ou SearXNG (JSON, so stdlib). So LE
   resultados; a sintese e do LLM.
 - Acao `BuscarWeb(consulta)` -> `handlers/buscar_web.py`: se `ctx.web_search is None` (web
-  off) responde que esta desativado; senao busca, sintetiza via `ctx.answer` (mesmo prompt
-  do RAG, generalizado p/ "notas ou busca") e anexa as fontes. O Pipeline so injeta
-  `ctx.web_search` quando `web=true`. Config: `web`, `web_engine`, `web_searxng_url`.
+  off) responde que esta desativado; senao busca, sintetiza via **`ctx.answer_web`**
+  (`Brain.answer_web`, prompt `BUSCA`) e anexa as fontes. O Pipeline injeta `web_search` +
+  `answer_web` so quando `web=true`. Config: `web`, `web_engine`, `web_searxng_url`.
+- **`BUSCA` e separado do `ANSWER` de proposito.** O `ANSWER` (notas) manda dizer "nao
+  encontrei" quando o contexto nao responde — certo pro RAG, errado pra web: uma busca que
+  trouxe 3 paginas uteis virava "Nao encontrou." **com as fontes listadas logo abaixo**,
+  contradizendo a si mesma. Resultado de busca quase nunca responde ao pe da letra; o
+  `BUSCA` manda dizer o que os resultados DE FATO cobrem.
 
 ### 5. Executor — `anta/actions/` (fachada + handlers)
 - `executor.py` e uma fachada fina: `execute(decisao, ctx)` despacha via

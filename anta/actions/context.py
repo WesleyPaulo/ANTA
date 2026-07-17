@@ -33,6 +33,7 @@ class ExecContext:
     summarize: "Callable[[str, str], str] | None" = None    # (periodo, material) -> resumo
     write: "Callable[[str, str], str] | None" = None        # (titulo, esboco) -> corpo da nota
     web_search: "Callable[[str], list] | None" = None       # (consulta) -> [Result]; None = web off
+    answer_web: "Callable[[str, str], str] | None" = None   # (pedido, resultados) -> sintese
 
     @classmethod
     def from_config(cls, obsidian_vault: str | None, tts: bool = False,

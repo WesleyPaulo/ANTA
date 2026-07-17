@@ -227,6 +227,17 @@ class Brain:
             temperature=0.2,
         )
 
+    def answer_web(self, pergunta: str, contexto: str) -> str:
+        """Sintetiza resultados de uma busca na web. Separado de `answer` (que serve o RAG)
+        porque a regra e outra: nas notas, "nao encontrei" e honesto; na web, com resultados
+        na mao — e com os links aparecendo logo abaixo da resposta — uma negativa seca joga
+        fora o que foi lido e contradiz o que o usuario ve. Ver prompts.BUSCA."""
+        return self._complete(
+            self._sys(self.prompts.busca),
+            f"Resultados da busca:\n{contexto}\n\nPedido do usuario: {pergunta}",
+            temperature=0.2,
+        )
+
     def write(self, titulo: str, esboco: str,
               history: list[tuple[str, str]] | None = None) -> str:
         """Escreve o CORPO de uma nota/documento sobre `titulo`, a partir do `esboco` que o

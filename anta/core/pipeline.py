@@ -58,6 +58,7 @@ class Pipeline:
 
             self.ctx.web_search = lambda q: websearch.search(
                 q, engine=web_engine, searxng_url=web_searxng_url)
+            self.ctx.answer_web = self.brain.answer_web
         self._history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
 
     def warm(self) -> str | None:
