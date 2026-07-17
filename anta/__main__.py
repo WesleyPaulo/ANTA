@@ -5,6 +5,7 @@
   python -m anta toggle   -> alterna a gravacao do daemon (usado pelo atalho do SO
                             no Wayland, onde apps nao capturam teclas globais)
   python -m anta mic      -> diagnostico do microfone (device resolvido + nivel do sinal)
+  python -m anta vozes    -> lista/instala vozes do TTS (catalogo Piper ou voz sua)
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import signal
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 # Evento disparado por qualquer fonte de atalho (pynput ou SIGUSR1).
 _trigger = threading.Event()
@@ -266,10 +268,75 @@ def mic_check(segundos: float = 4.0) -> None:
         print("[anta] nivel OK. O microfone esta captando sua voz.")
 
 
+def voices_cli(args: list[str]) -> None:
+    """`anta vozes` lista; `anta vozes <nome-ou-caminho-ou-url>` instala e passa a usar.
+
+    Aceita tanto uma voz do catalogo oficial quanto QUALQUER voz Piper (.onnx local ou
+    URL) — o Piper so precisa do par .onnx + .onnx.json, nao ha catalogo fechado.
+    """
+    from anta.core.config import load_user_config, save_user_config
+    from anta.core.tts import (
+        AMOSTRAS_URL, VOZES_PT, default_voice_path, import_voice, voices_dir,
+    )
+
+    cfg = load_user_config()
+    atual = cfg.tts_voice or str(default_voice_path())
+
+    if not args:
+        print("[anta] vozes em portugues do catalogo oficial do Piper:")
+        for nome, desc in VOZES_PT.items():
+            marca = " <- em uso" if Path(atual).name.startswith(nome) else ""
+            print(f"   {nome:22} {desc}{marca}")
+        print(f"\n   O catalogo NAO informa genero das vozes. Ouca antes: {AMOSTRAS_URL}")
+        print(f"\n[anta] instaladas em {voices_dir()}:")
+        instaladas = sorted(p.name for p in voices_dir().glob("*.onnx")) \
+            if voices_dir().exists() else []
+        for n in instaladas:
+            print(f"   {n}{'  <- em uso' if n == Path(atual).name else ''}")
+        print(f"   (nenhuma)" if not instaladas else "", end="" if instaladas else "\n")
+        print("\n[anta] para usar outra voz:")
+        print("   anta vozes pt_BR-cadu-medium              (do catalogo oficial)")
+        print("   anta vozes C:\\caminho\\minha-voz.onnx      (voz Piper sua)")
+        print("   anta vozes https://.../voz.onnx           (qualquer voz Piper na web)")
+        print("   Fora do catalogo, o .onnx.json tem que estar ao lado (mesmo nome + .json).")
+        return
+
+    alvo = args[0]
+    try:
+        if alvo in VOZES_PT or (alvo.count("-") == 2 and not Path(alvo).suffix):
+            from anta.core.tts import ensure_voice
+
+            print(f"[anta] baixando '{alvo}' do catalogo oficial...")
+            caminho = ensure_voice(alvo)
+        else:
+            print(f"[anta] importando voz de {alvo}...")
+            caminho = import_voice(alvo)
+    except Exception as e:  # noqa: BLE001 - erro de rede/arquivo: dizer, nao explodir
+        print(f"[anta] falhou: {e}")
+        if not str(alvo).endswith(".onnx"):
+            print("   Nomes do catalogo seguem <locale>-<speaker>-<qualidade> "
+                  "(ex.: pt_BR-cadu-medium). Rode 'anta vozes' para ver a lista.")
+        else:
+            print("   Uma voz Piper e o par <voz>.onnx + <voz>.onnx.json — os dois "
+                  "precisam existir lado a lado.")
+        sys.exit(1)
+
+    cfg.tts_voice = str(caminho)
+    if not cfg.tts:
+        cfg.tts = True
+        print("[anta] TTS estava desligado; liguei.")
+    save_user_config(cfg)
+    print(f"[anta] voz ativa: {caminho}")
+    print("[anta] reinicie o 'anta run' para valer.")
+
+
 def main() -> None:
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if arg == "run":
         run()
+        return
+    if arg in ("vozes", "voices"):
+        voices_cli(sys.argv[2:])
         return
     if arg == "toggle":
         toggle_daemon()

@@ -78,8 +78,29 @@ Deixe a janela aberta. Ela:
 - passa a ouvir **`ctrl+alt+space`** in-process (via `pynput`);
 - **mostra o feedback** — no Windows não há `notify-send`, o retorno sai no terminal.
 
-O instalador já registrou o autostart, então **no próximo login o daemon sobe sozinho**.
-Na primeira vez, rode à mão (ou faça logoff/logon).
+#### Inicialização automática no login
+
+O instalador **já registra** o daemon em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+Confira e, se faltar, registre à mão:
+
+```powershell
+# ver o que está registrado (deve sair o caminho do python.exe do .venv + "-m anta run")
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v anta
+
+# registrar/corrigir (aspas no interpretador são obrigatórias)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v anta /t REG_SZ `
+  /d '"C:\PROJETOS\ANTA\.venv\Scripts\python.exe" -m anta run' /f
+
+# desativar
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v anta /f
+```
+
+Faça logoff/logon: a ANTA sobe sozinha e o `ctrl+alt+space` funciona sem abrir terminal.
+
+> **Uma janela de console vai aparecer** e precisa ficar aberta — ela É o canal de feedback
+> no Windows (não há `notify-send`; é lá que saem o `ouvi:`, a ação e a resposta). Trocar
+> `python.exe` por `pythonw.exe` esconde a janela, mas aí você fica **sem retorno nenhum** —
+> só o TTS falando, se estiver ligado. Minimize a janela em vez de escondê-la.
 
 ### 4. Usar
 
@@ -114,6 +135,38 @@ a busca semântica valer a pena. Config e estado ficam em `%APPDATA%\anta\`:
 > versão); ao descomentar, aquele campo congela no que você escreveu. Se você instalou
 > antes de 2026-07-16, o arquivo saiu com uma **cópia** dos padrões e por isso ignora as
 > melhorias — apague-o (`del %APPDATA%\anta\prompts.toml`) para voltar a acompanhar.
+
+### 6. Trocar a voz (TTS)
+
+```powershell
+anta vozes                      # lista o catálogo PT + as instaladas + a em uso
+anta vozes pt_BR-cadu-medium    # baixa, ativa e salva na config
+```
+
+O Piper tem **5 vozes em português** (`pt_BR-faber-medium`, `-cadu-`, `-jeff-`,
+`pt_BR-edresson-low`, `pt_PT-tugão-medium`). O catálogo **não informa o gênero** das vozes —
+nem o `voices.json` nem os `MODEL_CARD` têm esse campo, então não dá para afirmar pelo nome.
+Ouça antes em **https://rhasspy.github.io/piper-samples/** (filtre por "Portuguese").
+
+#### Importar uma voz que não é do catálogo
+
+O Piper só precisa do par **`<voz>.onnx` + `<voz>.onnx.json`** — não existe catálogo fechado.
+Qualquer voz nesse formato serve, venha de onde vier:
+
+```powershell
+anta vozes C:\caminho\minha-voz.onnx        # arquivo local (o .json tem que estar ao lado)
+anta vozes https://.../voz.onnx             # direto de uma URL
+```
+
+Há vozes PT-BR **fora** do repo oficial, em qualidade `high` (melhor que as `medium`
+oficiais) — ex.: `pt_BR-miro-high` e `pt_BR-dii-high` em
+`huggingface.co/csukuangfj/vits-piper-pt_BR-dii-high`. Confira a licença de cada repo antes
+de usar; nem todos declaram uma (o `TarcisoAmorim/piper-pt_BR-miro-high`, por exemplo, é
+CC BY-NC-SA — não comercial).
+
+Para uma voz **sua**, o caminho é treinar/afinar com o Piper (`piper-train` + Piper Recording
+Studio) e importar o `.onnx` resultante. Modelos de outros motores (Coqui, XTTS, Tortoise)
+**não** funcionam sem conversão: o Piper carrega um VITS no formato dele.
 
 ## Notas e limitações
 

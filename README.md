@@ -143,6 +143,14 @@ docs/atalhos.md instrucoes de atalho por sistema
   (Qwen3/Gemma/DeepSeek) + modo por VRAM, com `structured` tools/json por familia.
 - v0.4: modo reuniao (audio do sistema via PipeWire/WASAPI).
 
+### TODO
+
+- **Busca academica (arXiv) como `web_engine`.** Motivo: pedir "os artigos mais importantes
+  sobre X" pelo DuckDuckGo devolve conteudo de blog/SEO (DataCamp, IBM, LinkedIn), nao
+  papers. O arXiv tem API publica e keyless — encaixa no mesmo contrato `search(query, ...)
+  -> [Result]` de `websearch.py`, entao e um bloco novo la e uma opcao a mais em
+  `web_engine`. Alternativa ja disponivel hoje: SearXNG com os engines academicos ligados.
+
 ## Licenca
 
 MIT.
