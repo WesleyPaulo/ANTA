@@ -19,6 +19,19 @@ _MAX_SAMPLES = SAMPLE_RATE * MAX_SECONDS
 # frases plausiveis que nunca foram ditas). Melhor dizer "curto demais" do que mandar
 # uma alucinacao pro LLM e responder qualquer coisa com confianca.
 MIN_SECONDS = 0.4
+# Pico minimo (float32 em [-1,1]) para considerar que ha FALA. Fala real chega
+# facil a 0.1+; ruido de sala fica na casa de 0.001-0.01; mic bloqueado/mudo da 0.0
+# exato. Mesma razao do MIN_SECONDS: silencio faz o Whisper inventar ("E ai", "Obrigado").
+SILENCE_PEAK = 0.01
+
+
+def audio_level(audio) -> tuple[float, float]:
+    """(pico, rms) do audio. Usado pro guard de silencio e pelo `anta mic`."""
+    import numpy as np
+
+    if audio is None or len(audio) == 0:
+        return 0.0, 0.0
+    return float(np.abs(audio).max()), float(np.sqrt(np.mean(np.square(audio))))
 
 
 def _input_devices():

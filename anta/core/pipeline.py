@@ -15,7 +15,7 @@ from anta.actions.executor import ExecContext, execute
 from anta.actions.helpers import write_memory_note
 from anta.actions.schema import Lembrar
 from anta.core.brain import Brain
-from anta.core.capture import MIN_SECONDS, SAMPLE_RATE
+from anta.core.capture import MIN_SECONDS, SAMPLE_RATE, SILENCE_PEAK, audio_level
 from anta.core.stt import Transcriber
 
 HISTORY_TURNS = 5  # janela de conversa (RAM); cap curto p/ nao estourar contexto do 4B
@@ -88,6 +88,15 @@ class Pipeline:
         segundos = len(audio) / SAMPLE_RATE
         if segundos < MIN_SECONDS:
             return f"Gravacao curta demais ({segundos:.1f}s) — nao deu tempo de falar."
+        pico, rms = audio_level(audio)
+        if on_progress is not None:
+            on_progress(f"audio: {segundos:.1f}s, pico {pico:.3f}, rms {rms:.4f}")
+        if pico < SILENCE_PEAK:
+            # NAO transcrever: o Whisper inventa frases em cima de silencio ("E ai",
+            # "Obrigado") e o LLM responde a alucinacao com toda a confianca. O usuario
+            # culpa o modelo por um problema de microfone. Diga a verdade.
+            return (f"O microfone nao captou audio (pico {pico:.3f} em {segundos:.1f}s). "
+                    f"Rode 'anta mic' para diagnosticar.")
         texto = self.transcriber.transcribe(audio)
         if not texto:
             return "Nao entendi — nada foi transcrito."

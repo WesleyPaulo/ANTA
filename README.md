@@ -104,7 +104,14 @@ pip install -r requirements.txt
 pip install -e . --no-deps   # instala o pacote: `anta` roda de qualquer pasta
 anta                         # abre o instalador (TUI)   (ou: python -m anta)
 anta run                     # roda o assistente (apos configurar)
+anta mic                     # diagnostico: qual mic foi resolvido + nivel do sinal
 ```
+
+O `anta mic` existe porque um microfone mudo e indistinguivel de um LLM burro pelo lado de
+fora: o Whisper **alucina** em cima do silencio (devolve "E ai", "Obrigado" — frases que
+ninguem falou), o modelo responde a alucinacao, e a culpa parece ser do modelo. O `anta mic`
+mostra o pico do sinal, sem interpretacao. O `anta run` tambem exibe `ouvi: "..."` a cada
+comando e recusa audio silencioso em vez de deixar o STT inventar.
 
 O `-e .` importa: sem ele, `python -m anta` so funciona com o CWD na raiz do repo — e o
 autostart do login roda com outro CWD.

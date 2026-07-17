@@ -4,6 +4,7 @@
   python -m anta run      -> roda o assistente (daemon quente, push-to-talk)
   python -m anta toggle   -> alterna a gravacao do daemon (usado pelo atalho do SO
                             no Wayland, onde apps nao capturam teclas globais)
+  python -m anta mic      -> diagnostico do microfone (device resolvido + nivel do sinal)
 """
 from __future__ import annotations
 
@@ -198,6 +199,73 @@ def toggle_daemon() -> None:
         sys.exit(1)
 
 
+def mic_check(segundos: float = 4.0) -> None:
+    """`anta mic`: diagnostico do microfone. Lista os devices (com host API) e grava,
+    medindo o nivel do sinal.
+
+    Existe porque um mic mudo e indistinguivel de um LLM burro pelo lado de fora: o
+    Whisper alucina em cima do silencio ("E ai"), o modelo responde a alucinacao, e a
+    culpa parece ser do modelo. Aqui o numero e o pico do sinal — sem interpretacao.
+    """
+    import time
+
+    try:
+        import sounddevice as sd
+    except OSError as e:  # PortAudio ausente (Linux sem libportaudio2; nao ocorre no Windows)
+        print(f"[anta] audio indisponivel: {e}\n"
+              f"   Linux: instale a libportaudio2 (o install.sh faz isso).")
+        return
+
+    from anta.core.capture import SAMPLE_RATE, Recorder, _resolve_device, audio_level
+    from anta.core.config import load_user_config
+
+    cfg = load_user_config()
+    apis = sd.query_hostapis()
+    print("[anta] microfones detectados:")
+    for idx, d in enumerate(sd.query_devices()):
+        if d.get("max_input_channels", 0) <= 0:
+            continue
+        api = apis[d["hostapi"]]["name"]
+        print(f"   [{idx:2}] {d['name']!r}  ({api}, {d['max_input_channels']}ch, "
+              f"{d['default_samplerate']:.0f} Hz)")
+
+    escolhido = _resolve_device(cfg.mic_device)
+    print(f"\n[anta] na config: {cfg.mic_device!r}")
+    if escolhido is None:
+        print("[anta] resolvido para: (default do sistema)"
+              + ("" if cfg.mic_device else " — nenhum nome salvo"))
+    else:
+        d = sd.query_devices()[escolhido]
+        print(f"[anta] resolvido para: [{escolhido}] {d['name']!r} "
+              f"({apis[d['hostapi']]['name']})")
+
+    rec = Recorder(cfg.mic_device)
+    try:
+        rec.start()
+    except Exception as e:  # noqa: BLE001
+        print(f"[anta] FALHA ao abrir o microfone: {e}")
+        return
+    print(f"\n[anta] gravando {segundos:.0f}s — FALE AGORA, alto e claro...")
+    time.sleep(segundos)
+    audio = rec.stop()
+    pico, rms = audio_level(audio)
+    print(f"[anta] resultado: {len(audio) / SAMPLE_RATE:.1f}s | pico {pico:.4f} | rms {rms:.4f}")
+
+    if pico == 0.0:
+        print("[anta] SILENCIO DIGITAL (zero absoluto). O stream abriu mas nao chega som:\n"
+              "   - Privacidade do Windows: Configuracoes > Privacidade > Microfone,\n"
+              "     ligue 'Permitir que aplicativos da area de trabalho acessem'.\n"
+              "   - O mic pode estar mudo no mixer ou com o botao fisico de mute ligado.\n"
+              "   - Tente outro device da lista acima (reinstale com 'anta' e escolha outro).")
+    elif pico < 0.01:
+        print("[anta] praticamente silencio: o mic capta, mas o nivel esta baixissimo.\n"
+              "   Aumente o volume/ganho do microfone nas configuracoes de som do Windows.")
+    elif pico < 0.05:
+        print("[anta] nivel baixo — deve funcionar, mas o STT vai errar mais. Aumente o ganho.")
+    else:
+        print("[anta] nivel OK. O microfone esta captando sua voz.")
+
+
 def main() -> None:
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if arg == "run":
@@ -205,6 +273,9 @@ def main() -> None:
         return
     if arg == "toggle":
         toggle_daemon()
+        return
+    if arg == "mic":
+        mic_check()
         return
     from anta.installer.app import main as installer
 
