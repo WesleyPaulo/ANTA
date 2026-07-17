@@ -15,7 +15,8 @@ from anta.actions.schema import Decisao, Responder
 from anta.core.brain import Brain, _instructor_mode, _strip_think
 from anta.core.prompts import Prompts, now_line
 
-_PROMPTS = Prompts(persona="PERSONA_X", decide="DECIDE_X", answer="ANSWER_X", resumo="RESUMO_X")
+_PROMPTS = Prompts(persona="PERSONA_X", decide="DECIDE_X", answer="ANSWER_X",
+                   resumo="RESUMO_X", escrita="ESCRITA_X")
 
 
 def _fake_client(content="resp", capture=None, canned=None, raise_on_extra=False):
@@ -228,6 +229,49 @@ class TestContextoDeTempo(unittest.TestCase):
         b._raw_client = _fake_client(content="r", capture=cap)
         b.answer("p", "ctx")
         self.assertIn("Contexto de tempo", cap["messages"][0]["content"])
+
+
+class TestWrite(unittest.TestCase):
+    """A nota do Fordismo saiu rasa porque a PERSONA ('respostas FALADAS: frases curtas,
+    sem markdown, sem listas') era prefixada em tudo — inclusive ao escrever uma nota, que
+    e LIDA. O modelo obedeceu. write() e a chamada de redacao, sem essa persona."""
+
+    def _brain(self, cap):
+        b = Brain("qwen3:4b-instruct", prompts=_PROMPTS)
+        b._raw_client = _fake_client(content="corpo redigido", capture=cap)
+        return b
+
+    def test_nao_leva_a_persona_de_voz(self):
+        cap = {}
+        self._brain(cap).write("Fordismo", "esboco")
+        system = cap["messages"][0]["content"]
+        self.assertNotIn("PERSONA_X", system)   # <- o bug: a persona de fala vazava aqui
+        self.assertIn("ESCRITA_X", system)
+
+    def test_titulo_e_esboco_chegam_no_pedido(self):
+        cap = {}
+        self._brain(cap).write("Fordismo", "origem e consequencias")
+        user = cap["messages"][-1]["content"]
+        self.assertIn("Fordismo", user)
+        self.assertIn("origem e consequencias", user)
+
+    def test_historico_da_conversa_entra(self):
+        # "anota ISSO numa nota" so faz sentido se a redacao ve o que se conversava
+        cap = {}
+        self._brain(cap).write("Fordismo", "esboco",
+                               history=[("O que foi o Fordismo?", "responder")])
+        self.assertIn("O que foi o Fordismo?", cap["messages"][0]["content"])
+
+    def test_temperatura_maior_que_a_do_roteamento(self):
+        # redacao != classificacao: 0.1 e otimo pra rotear e pessimo pra escrever
+        cap = {}
+        self._brain(cap).write("X", "y")
+        self.assertGreater(cap["temperature"], 0.1)
+
+    def test_esboco_vazio_nao_gera_secao_de_rascunho(self):
+        cap = {}
+        self._brain(cap).write("X", "   ")
+        self.assertNotIn("Rascunho", cap["messages"][-1]["content"])
 
 
 class TestWarm(unittest.TestCase):

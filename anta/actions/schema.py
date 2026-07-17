@@ -17,6 +17,10 @@ class CriarNota(BaseModel):
     acao: Literal["criar_nota"] = "criar_nota"
     titulo: str
     conteudo: str
+    # True = o usuario quer que a ANTA ESCREVA sobre o assunto ("anota tudo sobre X").
+    # Ai o `conteudo` e so um esboco e o handler chama o Brain de novo, com o prompt de
+    # ESCRITA, p/ redigir o corpo. False = o usuario DITOU o conteudo; grave literal.
+    expandir: bool = False
 
 
 class CriarDocumento(BaseModel):
@@ -24,6 +28,7 @@ class CriarDocumento(BaseModel):
     titulo: str
     conteudo: str
     formato: Literal["md", "docx", "pdf"] = "md"  # exportado via pandoc
+    expandir: bool = False  # ver CriarNota.expandir
 
 
 class AdicionarTarefa(BaseModel):

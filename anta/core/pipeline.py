@@ -48,6 +48,11 @@ class Pipeline:
         self.ctx.rag = self.rag
         self.ctx.answer = self.brain.answer
         self.ctx.summarize = self.brain.summarize
+        # Redacao de notas (expandir=true). O lambda le self._history NA HORA da chamada,
+        # entao a nota cobre o que se vinha conversando ("anota isso numa nota"). Nesse
+        # ponto o turno atual ainda nao entrou no historico — e certo: ele e o pedido.
+        self.ctx.write = lambda titulo, esboco: self.brain.write(
+            titulo, esboco, list(self._history))
         if web:  # OPT-IN: rompe o offline; so entao ligamos o buscador
             from anta.core import websearch
 

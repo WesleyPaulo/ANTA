@@ -45,6 +45,58 @@ class TestExecutor(unittest.TestCase):
         self.assertIn("corpo", texto)
         self.assertIn("Nota criada", msg)
 
+    def test_expandir_redige_o_corpo_num_2o_passe(self):
+        """Regressao real: a nota do Fordismo saiu um paragrafo raso. O `conteudo` vinha do
+        decide() — temperatura 0.1, string JSON com gramatica, e sob a persona que manda
+        'frases curtas, sem markdown' porque as respostas sao FALADAS. Com expandir, o corpo
+        e redigido numa chamada dedicada (prompt de ESCRITA, sem a persona de voz)."""
+        vistos = {}
+        def fake_write(titulo, esboco):
+            vistos.update(titulo=titulo, esboco=esboco)
+            return "## Origem\nTexto longo e estruturado."
+        self.ctx.write = fake_write
+        execute(_dec(CriarNota(titulo="Fordismo", conteudo="esboco raso", expandir=True)),
+                self.ctx)
+        texto = next(iter(Path(self._tmp.name).glob("*.md"))).read_text(encoding="utf-8")
+        self.assertIn("## Origem", texto)
+        self.assertNotIn("esboco raso", texto)          # o esboco nao vaza pra nota
+        self.assertEqual(vistos, {"titulo": "Fordismo", "esboco": "esboco raso"})
+
+    def test_sem_expandir_grava_literal(self):
+        # o usuario DITOU o conteudo: nao pode ser "melhorado" por cima
+        self.ctx.write = lambda t, e: "NAO DEVIA SER CHAMADO"
+        execute(_dec(CriarNota(titulo="Compras", conteudo="leite e pao")), self.ctx)
+        texto = next(iter(Path(self._tmp.name).glob("*.md"))).read_text(encoding="utf-8")
+        self.assertIn("leite e pao", texto)
+        self.assertNotIn("NAO DEVIA", texto)
+
+    def test_expandir_sem_write_cai_no_esboco(self):
+        # ctx.write None (rag/brain nao injetados): nota rasa e melhor que nota nenhuma
+        execute(_dec(CriarNota(titulo="X", conteudo="esboco", expandir=True)), self.ctx)
+        texto = next(iter(Path(self._tmp.name).glob("*.md"))).read_text(encoding="utf-8")
+        self.assertIn("esboco", texto)
+
+    def test_falha_na_redacao_nao_perde_a_nota(self):
+        def explode(titulo, esboco):
+            raise RuntimeError("ollama caiu")
+        self.ctx.write = explode
+        msg = execute(_dec(CriarNota(titulo="X", conteudo="esboco", expandir=True)), self.ctx)
+        texto = next(iter(Path(self._tmp.name).glob("*.md"))).read_text(encoding="utf-8")
+        self.assertIn("esboco", texto)
+        self.assertIn("Nota criada", msg)
+
+    def test_redacao_vazia_cai_no_esboco(self):
+        self.ctx.write = lambda t, e: "   \n  "
+        execute(_dec(CriarNota(titulo="X", conteudo="esboco", expandir=True)), self.ctx)
+        texto = next(iter(Path(self._tmp.name).glob("*.md"))).read_text(encoding="utf-8")
+        self.assertIn("esboco", texto)
+
+    def test_documento_tambem_expande(self):
+        self.ctx.write = lambda t, e: "# Corpo redigido"
+        execute(_dec(CriarDocumento(titulo="Rel", conteudo="esboco", expandir=True)), self.ctx)
+        texto = next(iter(Path(self._tmp.name).glob("*.md"))).read_text(encoding="utf-8")
+        self.assertIn("Corpo redigido", texto)
+
     def test_criar_nota_nao_sobrescreve(self):
         execute(_dec(CriarNota(titulo="dup", conteudo="a")), self.ctx)
         execute(_dec(CriarNota(titulo="dup", conteudo="b")), self.ctx)

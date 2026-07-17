@@ -18,6 +18,27 @@ def slug(texto: str) -> str:
     return s or "nota"
 
 
+def corpo_da_nota(acao, ctx) -> str:
+    """Corpo final de criar_nota/criar_documento.
+
+    Com `expandir`, o `conteudo` que veio do decide() e so um esboco: ele sai a
+    temperatura 0.1 dentro de uma string JSON com gramatica (otimo pra rotear, pessimo
+    pra redigir) e sob uma persona que manda "frases curtas, sem markdown" — porque as
+    respostas sao FALADAS. O resultado eram notas rasas. Entao redigimos de novo, numa
+    chamada dedicada (`ctx.write` -> `Brain.write`, com o prompt de ESCRITA).
+
+    Best-effort: sem `ctx.write` (testes de handler) ou se a redacao falhar/vier vazia,
+    fica o esboco. Uma nota rasa e melhor que nenhuma.
+    """
+    if not getattr(acao, "expandir", False) or ctx.write is None:
+        return acao.conteudo
+    try:
+        corpo = ctx.write(acao.titulo, acao.conteudo)
+    except Exception:  # noqa: BLE001 - redacao e melhoria, nao pode derrubar a nota
+        return acao.conteudo
+    return corpo.strip() or acao.conteudo
+
+
 def unique_path(directory: Path, stem: str, ext: str) -> Path:
     """Evita sobrescrever: nota.md, nota-2.md, ..."""
     directory.mkdir(parents=True, exist_ok=True)

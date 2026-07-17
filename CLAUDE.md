@@ -101,8 +101,18 @@ uma restricao real de hardware (GPU de 8GB).
   o principio 1: a VRAM segue exclusiva do LLM) e so e importado ao falar.
 
 ### 4.55 Prompts — `anta/core/prompts.py` (v0.3)
-- Todos os prompts vivem aqui (unica fonte): `PERSONA` (tom compartilhado, prefixado a
-  cada tarefa) + `DECIDE` (roteamento com few-shot) + `ANSWER` (RAG) + `RESUMO`.
+- Todos os prompts vivem aqui (unica fonte): `PERSONA` (tom compartilhado) + `DECIDE`
+  (roteamento com few-shot) + `ANSWER` (RAG) + `RESUMO` + `ESCRITA` (notas/documentos).
+- **A `PERSONA` so vale para o que e FALADO** (`decide`/`answer`/`resumo`, via `_sys()`).
+  Ela manda "frases curtas, sem markdown, sem listas" porque a saida vai pro TTS — e isso
+  vazava para a escrita de notas: o modelo obedecia e entregava um paragrafo raso onde se
+  pedia material util. `Brain.write()` usa `ESCRITA` **sem** a persona. Nao prefixe a
+  persona em nada escrito.
+- **`write_default_prompts()` escreve tudo COMENTADO.** Antes copiava os padroes pro TOML
+  e, como `load_prompts()` sobrepoe o codigo, o snapshot da instalacao ganhava para
+  sempre: melhorias no `decide` (afiado a cada bug de roteamento) nunca chegavam em quem
+  ja tinha instalado, sem aviso. Comentado, o padrao do codigo vale ate o usuario decidir
+  o contrario.
 - `load_prompts()` sobrepoe overrides de `config_dir()/prompts.toml` campo a campo
   (string vazia/tipo errado/arquivo invalido caem no padrao). `write_default_prompts()`
   escreve o TOML editavel sem sobrescrever edicoes (o instalador chama). O `Brain` recebe
@@ -150,6 +160,12 @@ uma restricao real de hardware (GPU de 8GB).
 - Um arquivo por acao em `handlers/`, com `handle(acao, ctx) -> str`.
   `criar_documento` converte via `pandoc` quando `formato != "md"`; `responder`
   fala via `anta/core/tts.speak` (Piper) se `ctx.tts`.
+- **Redacao em 2 passes** (`CriarNota`/`CriarDocumento` com `expandir=true`): o `conteudo`
+  do `decide()` e so um ESBOCO — sai a temperatura 0.1, dentro de uma string JSON com
+  gramatica e sob a persona de voz. `helpers.corpo_da_nota(acao, ctx)` chama `ctx.write`
+  (-> `Brain.write`, prompt `ESCRITA`, temp 0.6, com a janela de conversa) para redigir.
+  Best-effort: sem `ctx.write` ou se a redacao falhar/vier vazia, fica o esboco — nota
+  rasa e melhor que nota nenhuma. `expandir=false` grava LITERAL (o usuario ditou).
 - `apps.py`: whitelist de `abrir_app` isolada (`lookup`/`permitidos`).
   `context.py`: `ExecContext` + constantes (agora carrega `rag`/`answer`/`summarize`,
   injetados em runtime pelo `Pipeline`, anotados sob `TYPE_CHECKING` p/ a folha seguir

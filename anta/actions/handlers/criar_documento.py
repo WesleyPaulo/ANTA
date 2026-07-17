@@ -5,13 +5,13 @@ import shutil
 import subprocess
 
 from anta.actions.context import ExecContext
-from anta.actions.helpers import note_body, slug, unique_path
+from anta.actions.helpers import corpo_da_nota, note_body, slug, unique_path
 from anta.actions.schema import CriarDocumento
 
 
 def handle(acao: CriarDocumento, ctx: ExecContext) -> str:
     md_path = unique_path(ctx.vault, slug(acao.titulo), "md")
-    md_path.write_text(note_body(acao.titulo, acao.conteudo), encoding="utf-8")
+    md_path.write_text(note_body(acao.titulo, corpo_da_nota(acao, ctx)), encoding="utf-8")
     if acao.formato == "md":
         return f"Documento criado: {md_path.name}"
     if shutil.which("pandoc") is None:

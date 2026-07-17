@@ -227,6 +227,27 @@ class Brain:
             temperature=0.2,
         )
 
+    def write(self, titulo: str, esboco: str,
+              history: list[tuple[str, str]] | None = None) -> str:
+        """Escreve o CORPO de uma nota/documento sobre `titulo`, a partir do `esboco` que o
+        decide() produziu (que costuma ser raso: sai a temperatura 0.1, dentro de uma string
+        JSON com gramatica — otimo pra rotear, pessimo pra redigir).
+
+        Chamada SEPARADA de proposito, e sem a PERSONA: a persona manda "frases curtas, sem
+        markdown, sem listas" porque as respostas sao FALADAS — e o modelo obedecia ao
+        escrever notas, entregando um paragrafo raso. Aqui o texto e lido, nao falado.
+        Temperatura mais alta que o roteamento: e redacao, nao classificacao.
+        """
+        system = self.prompts.escrita
+        if history:
+            falas = "\n".join(f"- {fala}" for fala, _ in history)
+            system = (f"{system}\n\nO usuario vinha conversando com voce sobre isto — cubra "
+                      f"o que foi dito e va alem:\n{falas}")
+        pedido = f"Titulo da nota: {titulo}"
+        if esboco.strip():
+            pedido += f"\n\nRascunho/pedido do usuario (expanda, nao repita literalmente):\n{esboco}"
+        return self._complete(system, pedido, temperature=0.6)
+
     def summarize(self, periodo: str, material: str) -> str:
         """Sintetiza um resumo da atividade do usuario no periodo (dia/semana/mes)."""
         return self._complete(

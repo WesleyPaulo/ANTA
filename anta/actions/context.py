@@ -31,6 +31,7 @@ class ExecContext:
     rag: "RAG | None" = None
     answer: "Callable[[str, str], str] | None" = None       # (pergunta, contexto) -> resposta
     summarize: "Callable[[str, str], str] | None" = None    # (periodo, material) -> resumo
+    write: "Callable[[str, str], str] | None" = None        # (titulo, esboco) -> corpo da nota
     web_search: "Callable[[str], list] | None" = None       # (consulta) -> [Result]; None = web off
 
     @classmethod
