@@ -276,7 +276,8 @@ def voices_cli(args: list[str]) -> None:
     """
     from anta.core.config import load_user_config, save_user_config
     from anta.core.tts import (
-        AMOSTRAS_URL, VOZES_PT, default_voice_path, import_voice, voices_dir,
+        AMOSTRAS_URL, VOZES_COMUNIDADE, VOZES_PT, default_voice_path, import_voice,
+        voices_dir,
     )
 
     cfg = load_user_config()
@@ -287,7 +288,12 @@ def voices_cli(args: list[str]) -> None:
         for nome, desc in VOZES_PT.items():
             marca = " <- em uso" if Path(atual).name.startswith(nome) else ""
             print(f"   {nome:22} {desc}{marca}")
-        print(f"\n   O catalogo NAO informa genero das vozes. Ouca antes: {AMOSTRAS_URL}")
+        print("\n[anta] vozes da comunidade (fora do catalogo, conferidas):")
+        for nome, (_url, desc) in VOZES_COMUNIDADE.items():
+            marca = " <- em uso" if Path(atual).name.startswith(nome) else ""
+            print(f"   {nome:22} {desc}{marca}")
+        print(f"\n   Nenhuma fonte informa GENERO das vozes; o F0 acima e medido (registro"
+              f" grave/agudo)\n   e nao prova genero. Para decidir, ouca: {AMOSTRAS_URL}")
         print(f"\n[anta] instaladas em {voices_dir()}:")
         instaladas = sorted(p.name for p in voices_dir().glob("*.onnx")) \
             if voices_dir().exists() else []
@@ -303,7 +309,11 @@ def voices_cli(args: list[str]) -> None:
 
     alvo = args[0]
     try:
-        if alvo in VOZES_PT or (alvo.count("-") == 2 and not Path(alvo).suffix):
+        if alvo in VOZES_COMUNIDADE:  # antes do catalogo: nao esta no repo oficial -> 404
+            url, _ = VOZES_COMUNIDADE[alvo]
+            print(f"[anta] baixando '{alvo}' (voz da comunidade)...")
+            caminho = import_voice(url, nome=alvo)
+        elif alvo in VOZES_PT or (alvo.count("-") == 2 and not Path(alvo).suffix):
             from anta.core.tts import ensure_voice
 
             print(f"[anta] baixando '{alvo}' do catalogo oficial...")

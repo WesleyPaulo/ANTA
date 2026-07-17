@@ -143,10 +143,25 @@ anta vozes                      # lista o catálogo PT + as instaladas + a em us
 anta vozes pt_BR-cadu-medium    # baixa, ativa e salva na config
 ```
 
-O Piper tem **5 vozes em português** (`pt_BR-faber-medium`, `-cadu-`, `-jeff-`,
-`pt_BR-edresson-low`, `pt_PT-tugão-medium`). O catálogo **não informa o gênero** das vozes —
-nem o `voices.json` nem os `MODEL_CARD` têm esse campo, então não dá para afirmar pelo nome.
-Ouça antes em **https://rhasspy.github.io/piper-samples/** (filtre por "Portuguese").
+O catálogo oficial do Piper tem **5 vozes em português**; há mais duas da comunidade, em
+qualidade `high` (acima das `medium` oficiais):
+
+| Voz | Qualidade | F0 medido | Origem |
+|---|---|---|---|
+| `pt_BR-faber-medium` | 22 kHz, media | ~170 Hz | oficial — padrão da ANTA |
+| `pt_BR-cadu-medium` | 22 kHz, media | ~134 Hz | oficial |
+| `pt_BR-jeff-medium` | 22 kHz, media | ~150 Hz | oficial |
+| `pt_BR-edresson-low` | 16 kHz, baixa | ~158 Hz | oficial — mais leve/rápida |
+| `pt_PT-tugão-medium` | 22 kHz, media | ~170 Hz | oficial — Portugal |
+| `pt_BR-dii-high` | 22 kHz, **alta** | **~197 Hz** | comunidade — sem licença declarada |
+| `pt_BR-miro-high` | 22 kHz, **alta** | ~118 Hz | comunidade — sem licença declarada |
+
+> **Nenhuma fonte informa o gênero das vozes** — nem o `voices.json`, nem os `MODEL_CARD`,
+> nem os cards dos repos da comunidade. Deduzir pelo nome do speaker é chute. O **F0**
+> (frequência fundamental) acima foi **medido** das amostras/sínteses: é registro
+> grave/agudo, um dado objetivo, e **não prova gênero**. Referência da literatura: fala
+> adulta masculina ~85-155 Hz, feminina ~165-255 Hz. Para decidir, **ouça**:
+> **https://rhasspy.github.io/piper-samples/** (filtre por "Portuguese").
 
 #### Importar uma voz que não é do catálogo
 

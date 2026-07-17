@@ -25,14 +25,36 @@ _REPO = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 # ensure_voice() aceita qualquer nome no padrao do Piper, e import_voice() aceita
 # qualquer voz Piper de qualquer origem.
 #
-# O catalogo NAO informa genero (nem o voices.json nem os MODEL_CARDs tem esse campo) —
-# nao adivinhe pelo nome. Para ouvir: https://rhasspy.github.io/piper-samples/
+# NENHUMA fonte informa o genero das vozes (nem o voices.json, nem os MODEL_CARDs, nem os
+# cards dos repos da comunidade) — deduzir pelo nome do speaker e chute. O que da pra
+# afirmar e o F0 (frequencia fundamental) MEDIDO das amostras, em 2026-07-16: um dado
+# objetivo de registro (grave/agudo). Metodo aferido contra vozes en_US do mesmo catalogo,
+# que se espalharam de 86 a 202 Hz — ou seja, ele separa os registros de fato.
+# Referencia da literatura: fala adulta masculina ~85-155 Hz, feminina ~165-255 Hz.
+# F0 alto NAO prova genero: para decidir, ouca em https://rhasspy.github.io/piper-samples/
 VOZES_PT = {
-    "pt_BR-faber-medium": "22 kHz, qualidade media — padrao da ANTA",
-    "pt_BR-cadu-medium": "22 kHz, qualidade media",
-    "pt_BR-jeff-medium": "22 kHz, qualidade media",
-    "pt_BR-edresson-low": "16 kHz, qualidade baixa — mais rapida e leve",
-    "pt_PT-tugão-medium": "22 kHz, media — portugues de PORTUGAL",
+    "pt_BR-faber-medium": "22 kHz, media  | F0 ~170 Hz — padrao da ANTA",
+    "pt_BR-cadu-medium": "22 kHz, media  | F0 ~134 Hz (registro grave)",
+    "pt_BR-jeff-medium": "22 kHz, media  | F0 ~150 Hz",
+    "pt_BR-edresson-low": "16 kHz, baixa  | F0 ~158 Hz — mais rapida e leve",
+    "pt_PT-tugão-medium": "22 kHz, media  | F0 ~170 Hz — portugues de PORTUGAL",
+}
+
+# Vozes PT fora do repo oficial, conferidas a mao (formato Piper correto, sintetizadas e
+# medidas aqui). Precisam de URL: `ensure_voice` so sabe o layout do repo oficial, entao
+# sem este mapa `anta vozes pt_BR-dii-high` iria bater 404 no rhasspy/piper-voices.
+# ATENCAO: estes repos NAO declaram licenca — ver README/docs antes de uso comercial.
+VOZES_COMUNIDADE = {
+    "pt_BR-dii-high": (
+        "https://huggingface.co/csukuangfj/vits-piper-pt_BR-dii-high/resolve/main/"
+        "pt_BR-dii-high.onnx",
+        "22 kHz, ALTA  | F0 ~197 Hz (registro agudo) — sem licenca declarada",
+    ),
+    "pt_BR-miro-high": (
+        "https://huggingface.co/csukuangfj/vits-piper-pt_BR-miro-high/resolve/main/"
+        "pt_BR-miro-high.onnx",
+        "22 kHz, ALTA  | F0 ~118 Hz (registro grave) — sem licenca declarada",
+    ),
 }
 AMOSTRAS_URL = "https://rhasspy.github.io/piper-samples/"
 

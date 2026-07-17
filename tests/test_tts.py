@@ -151,11 +151,26 @@ class TestCatalogoPt(unittest.TestCase):
             self.assertTrue(tts._voice_url(nome).startswith("https://"), nome)
 
     def test_nao_inventa_genero(self):
-        # o voices.json e os MODEL_CARDs do Piper NAO tem campo de genero; deduzir pelo
-        # nome do speaker e chute. Se alguem quiser essa info, e ouvindo a amostra.
-        texto = " ".join(tts.VOZES_PT.values()).lower()
+        # NENHUMA fonte (voices.json, MODEL_CARDs, cards da comunidade) tem campo de
+        # genero; deduzir pelo nome do speaker e chute — ja chutei uma vez. O que da pra
+        # afirmar e o F0 medido, que e registro, nao genero.
+        texto = (" ".join(tts.VOZES_PT.values())
+                 + " " + " ".join(d for _u, d in tts.VOZES_COMUNIDADE.values())).lower()
         for palavra in ("masculina", "feminina", "masculino", "feminino"):
             self.assertNotIn(palavra, texto)
+
+    def test_comunidade_tem_url_propria(self):
+        # sem URL, `anta vozes pt_BR-dii-high` cairia no ensure_voice -> 404 no repo
+        # oficial (a voz nao esta la). Por isso o mapa guarda a URL.
+        for nome, (url, _desc) in tts.VOZES_COMUNIDADE.items():
+            self.assertTrue(url.startswith("https://"), nome)
+            self.assertTrue(url.endswith(".onnx"), nome)
+            self.assertNotIn(nome, tts.VOZES_PT)  # senao o catalogo venceria no CLI
+
+    def test_licenca_indeterminada_e_sinalizada(self):
+        # os repos da comunidade nao declaram licenca; nao esconder isso do usuario
+        for nome, (_url, desc) in tts.VOZES_COMUNIDADE.items():
+            self.assertIn("licenca", desc.lower(), nome)
 
 
 if __name__ == "__main__":
