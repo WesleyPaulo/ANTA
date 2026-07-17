@@ -52,9 +52,14 @@ DECIDE = (
     "- abrir_app: abrir um aplicativo pelo nome.\n"
     "- lembrar: SOMENTE quando o usuario pede explicitamente para memorizar um fato "
     "('lembre que...', 'anote que...').\n"
-    "- consultar: perguntas sobre o que o usuario JA anotou/criou/pediu para lembrar, "
-    "INCLUSIVE pedir um resumo das notas dele sobre um ASSUNTO/tema ('o que anotei sobre X', "
-    "'qual era o prazo de Y', 'me resume o que tenho sobre o projeto X').\n"
+    "- consultar: SOMENTE quando o usuario se refere ao MATERIAL DELE — o que ele anotou, "
+    "criou, salvou ou pediu para lembrar. Quase sempre ha uma marca disso na frase: 'eu "
+    "anotei', 'minhas notas', 'que eu salvei', 'meu projeto', 'o que tenho sobre'. "
+    "Ex.: 'o que anotei sobre X', 'qual era o prazo de Y', 'me resume o que tenho sobre o "
+    "projeto X'. Se a pergunta e sobre um assunto do MUNDO (historia, ciencia, idiomas, "
+    "definicoes, como algo funciona) e NAO cita as notas do usuario, e responder — NAO "
+    "consultar. Na duvida entre consultar e responder, escolha responder: as notas dele "
+    "nao tem a Revolucao Industrial dentro.\n"
     "- resumir: SOMENTE para um resumo da atividade do usuario num PERIODO DE TEMPO ('o que "
     "fiz hoje', 'resumo da semana', 'o que produzi esse mes'). Regra de desempate: se o "
     "pedido tem um ASSUNTO/tema (um 'sobre o que'), e consultar; se tem so um PERIODO de "
@@ -63,9 +68,11 @@ DECIDE = (
     "'procura na internet', 'busca online') ou pergunta algo atual que exige a internet "
     "(noticias de hoje, cotacao, placar). Conhecimento geral que voce ja sabe -> responder. "
     "Data e hora NAO exigem a internet: voce ja tem no contexto de tempo acima.\n"
-    "- responder: perguntas gerais, conversa, resumo de conhecimento do mundo (nao das suas "
-    "notas nem da web), ou o que nao se encaixa acima. Inclui data e hora atuais ('que dia e "
-    "hoje?', 'que horas sao?') — leia do contexto de tempo acima. E o padrao.\n"
+    "- responder: perguntas gerais, conversa e conhecimento do mundo que voce ja sabe — "
+    "historia, ciencia, traducao, definicoes, explicacoes ('me fala sobre a Revolucao "
+    "Industrial', 'como se fala X em ingles'). Inclui data e hora atuais ('que dia e hoje?', "
+    "'que horas sao?') — leia do contexto de tempo acima. E o PADRAO: se nenhuma outra acao "
+    "se encaixa claramente, use responder.\n"
     "Campo memoria (opcional, separado da acao): preencha SO com um fato duravel e "
     "reutilizavel sobre o usuario (preferencia, nome, fato pessoal, decisao); senao, null. "
     "Nunca repita o comando, e nunca use memoria junto da acao lembrar.\n"
@@ -74,9 +81,12 @@ DECIDE = (
     "(titulo='Ideias', conteudo='preciso de um modo offline')\n"
     "- 'lembra que eu prefiro reunioes de manha' -> lembrar(fato='prefere reunioes de manha')\n"
     "- 'o que eu tinha anotado sobre o contrato?' -> consultar(pergunta='o que foi anotado "
-    "sobre o contrato?')\n"
+    "sobre o contrato?')   [cita as notas DELE]\n"
     "- 'me faz um resumo do que tenho sobre o projeto X' -> consultar(pergunta='resumo das "
     "notas sobre o projeto X')   [tem assunto -> consultar, nao resumir]\n"
+    "- 'voce poderia falar mais sobre a Revolucao Industrial?' -> responder(texto='...')   "
+    "[assunto do mundo, NAO cita as notas -> responder, nao consultar]\n"
+    "- 'como se fala perspicaz em ingles?' -> responder(texto='...')   [conhecimento geral]\n"
     "- 'me resume o que eu fiz essa semana' -> resumir(periodo='semana')   [so periodo]\n"
     "- 'pesquisa na web quem ganhou o jogo ontem' -> buscar_web(consulta='quem ganhou o "
     "jogo ontem')\n"
@@ -137,21 +147,32 @@ def load_prompts(path: str | Path | None = None) -> Prompts:
 
 
 def write_default_prompts(path: str | Path | None = None) -> Path:
-    """Escreve os prompts padrao num TOML editavel — SEM sobrescrever edicoes existentes.
-    O instalador chama isto para o usuario ter um arquivo pronto para ajustar."""
+    """Escreve o TOML de prompts com todos os campos COMENTADOS — SEM sobrescrever edicoes.
+
+    Comentado de proposito. Antes o arquivo saia com uma COPIA dos padroes, e como
+    `load_prompts()` sobrepoe o TOML por cima do codigo, o snapshot da instalacao passava
+    a ganhar para sempre: toda melhoria posterior no roteamento (o `decide` e afiado a
+    cada bug de roteamento encontrado) simplesmente nunca chegava em quem ja tinha
+    instalado — e nada avisava. Comentado, o padrao do codigo vale ate o usuario decidir
+    o contrario, e o arquivo segue servindo de referencia do que da pra editar.
+    """
     p = Path(path) if path is not None else prompts_path()
     if p.exists():
         return p
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# Prompts da ANTA — edite para mudar tom/regras sem tocar no codigo.",
-        "# Apague uma chave (ou o arquivo todo) para voltar ao padrao interno.",
+        "# Prompts da ANTA — descomente um bloco para SUBSTITUIR o padrao daquele campo.",
+        "#",
+        "# Enquanto um campo esta comentado, vale o padrao do codigo (que melhora a cada",
+        "# versao). Ao descomentar, aquele campo CONGELA no que estiver aqui: e sua",
+        "# responsabilidade, e as melhorias futuras da ANTA nao chegam nele.",
+        "# Para voltar ao padrao: comente de novo (ou apague o bloco).",
         "",
     ]
     for key, val in DEFAULTS.items():
-        lines.append(f'{key} = """')
-        lines.append(val)
-        lines.append('"""')
+        lines.append(f'# {key} = """')
+        lines.extend(f"# {linha}" if linha else "#" for linha in val.split("\n"))
+        lines.append('# """')
         lines.append("")
     p.write_text("\n".join(lines), encoding="utf-8")
     return p

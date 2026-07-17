@@ -69,11 +69,19 @@ class Embedder:
 
     def load(self):
         if self._model is None:
+            import warnings
+
             from fastembed import TextEmbedding
 
             self.cache_dir.mkdir(parents=True, exist_ok=True)
-            self._model = TextEmbedding(model_name=self.model_name,
-                                        cache_dir=str(self.cache_dir))
+            # O fastembed avisa que o MiniLM passou a usar mean pooling no lugar do CLS.
+            # E o comportamento CERTO (o sentence-transformers original usa mean pooling) e
+            # nao ha nada a fazer — o aviso so polui o console do usuario no meio de um
+            # comando de voz. O Index ja se reconstroi sozinho se modelo/dim mudarem.
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning, module="fastembed.*")
+                self._model = TextEmbedding(model_name=self.model_name,
+                                            cache_dir=str(self.cache_dir))
         return self._model
 
     def _needs_prefix(self) -> bool:
