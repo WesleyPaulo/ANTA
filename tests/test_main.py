@@ -45,7 +45,7 @@ class _FakePipeline:
         self.received = None
         self.progresso = progresso  # mensagens que o pipeline emite via on_progress
 
-    def run(self, audio, on_progress=None):
+    def run(self, audio, on_progress=None, on_state=None):
         self.received = audio
         for m in self.progresso:
             if on_progress is not None:
@@ -125,6 +125,42 @@ class TestSession(unittest.TestCase):
         s.toggle()
         s.toggle()
         self.assertEqual(msgs[-1], "pronto — aperte o atalho para falar de novo.")
+
+
+class TestSessionStates(unittest.TestCase):
+    """Canal on_state (M3): estados tipados p/ a GUI. O daemon CLI passa None."""
+
+    def _capture(self, rec, pipe):
+        states: list[str] = []
+        s = Session(rec, pipe, notify=lambda *_: None,
+                    on_state=lambda state, **_: states.append(state))
+        return s, states
+
+    def test_sequencia_feliz(self):
+        # o fake pipeline nao emite 'respondendo' (so o Pipeline real emite);
+        # aqui checamos os estados que o Session controla.
+        s, states = self._capture(_FakeRecorder(audio="A"), _FakePipeline(feedback="ok"))
+        s.toggle()  # 1a pressao
+        s.toggle()  # 2a pressao
+        self.assertEqual(states, ["ouvindo", "processando", "pronto"])
+
+    def test_erro_no_mic_emite_erro(self):
+        s, states = self._capture(_FakeRecorder(fail_start=True), _FakePipeline())
+        s.toggle()
+        self.assertEqual(states, ["erro"])  # nao entrou em 'ouvindo'
+
+    def test_erro_no_pipeline_emite_erro_e_volta_a_pronto(self):
+        s, states = self._capture(_FakeRecorder(audio="A"), _FakePipeline(fail=True))
+        s.toggle()
+        s.toggle()
+        self.assertIn("erro", states)
+        self.assertEqual(states[-1], "pronto")  # sempre volta a pronto
+
+    def test_cli_sem_on_state_nao_quebra(self):
+        # regressao: o daemon CLI nao passa on_state -> emit() vira no-op
+        s = Session(_FakeRecorder(audio="A"), _FakePipeline(feedback="ok"), lambda *_: None)
+        s.toggle()
+        s.toggle()  # nao pode levantar
 
 
 class TestShortErr(unittest.TestCase):

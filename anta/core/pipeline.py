@@ -16,6 +16,7 @@ from anta.actions.helpers import write_memory_note
 from anta.actions.schema import Lembrar
 from anta.core.brain import Brain
 from anta.core.capture import MIN_SECONDS, SAMPLE_RATE, SILENCE_PEAK, audio_level
+from anta.core.states import State, emit
 from anta.core.stt import Transcriber
 
 HISTORY_TURNS = 5  # janela de conversa (RAM); cap curto p/ nao estourar contexto do 4B
@@ -84,15 +85,33 @@ class Pipeline:
 
         threading.Thread(target=_job, daemon=True).start()
 
-    def run(self, audio, on_progress=None) -> str:
+    def unload(self) -> str | None:
+        """Contraparte de warm(): solta o LLM da VRAM e larga os modelos de CPU
+        (STT/embedding) — o botao 'descarregar modelo' da GUI libera RAM/VRAM sem
+        fechar o app. Tudo recarrega lazy no proximo uso. Devolve o aviso do Brain."""
+        aviso = self.brain.unload()
+        self.transcriber._model = None  # o load() do Whisper e lazy: recarrega sozinho
+        if self.rag is not None:
+            try:
+                self.rag.embedder._model = None
+            except Exception:  # noqa: BLE001 - best-effort
+                pass
+        return aviso
+
+    def run(self, audio, on_progress=None, on_state=None) -> str:
         """Recebe o audio ja gravado e devolve a mensagem de feedback.
 
         `on_progress(msg)` (opcional) recebe os passos intermediarios — hoje o que o
         STT ouviu. Sem isso o fluxo audio->texto->acao e uma caixa preta: quando a ANTA
         responde algo estranho, nao da pra saber se ela ouviu errado ou decidiu errado.
+
+        `on_state(state, **payload)` (opcional) recebe os estados TIPADOS p/ a GUI (ver
+        anta.core.states). None no daemon CLI -> no-op, comportamento identico.
         """
         segundos = len(audio) / SAMPLE_RATE
         if segundos < MIN_SECONDS:
+            emit(on_state, State.ERRO, code="mic",
+                 text=f"Gravacao curta demais ({segundos:.1f}s).")
             return f"Gravacao curta demais ({segundos:.1f}s) — nao deu tempo de falar."
         pico, rms = audio_level(audio)
         if on_progress is not None:
@@ -101,16 +120,22 @@ class Pipeline:
             # NAO transcrever: o Whisper inventa frases em cima de silencio ("E ai",
             # "Obrigado") e o LLM responde a alucinacao com toda a confianca. O usuario
             # culpa o modelo por um problema de microfone. Diga a verdade.
-            return (f"O microfone nao captou audio (pico {pico:.3f} em {segundos:.1f}s). "
-                    f"Rode 'anta mic' para diagnosticar.")
+            msg = (f"O microfone nao captou audio (pico {pico:.3f} em {segundos:.1f}s). "
+                   f"Rode 'anta mic' para diagnosticar.")
+            # "nao ouviu" -> a GUI mostra o CTA de verificar o microfone (guia §5).
+            emit(on_state, State.ERRO, code="mic", text=msg)
+            return msg
         texto = self.transcriber.transcribe(audio)
         if not texto:
+            emit(on_state, State.ERRO, code="stt", text="Nada foi transcrito.")
             return "Nao entendi — nada foi transcrito."
         if on_progress is not None:
             on_progress(f'ouvi: "{texto}"')
         decisao = self.brain.decide(texto, list(self._history))
         if on_progress is not None:
             on_progress(f"acao: {self._rotulo(decisao)}")
+        # RESPONDENDO: o modelo decidiu; agora executa/fala (o TTS bloqueia aqui dentro).
+        emit(on_state, State.RESPONDENDO, text=self._rotulo(decisao))
         feedback = execute(decisao, self.ctx)
         # canal AUTOMATICO de memoria: grava o fato duravel sinalizado pelo LLM.
         # Pula quando a acao ja e Lembrar (o handler ja gravou) -> evita duplicata.

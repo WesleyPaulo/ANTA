@@ -334,6 +334,47 @@ class TestWarm(unittest.TestCase):
         self.assertIn("500", aviso)
 
 
+class TestUnload(unittest.TestCase):
+    """unload() (M3): contraparte de warm() — solta o modelo da VRAM (keep_alive:0).
+    Best-effort; 404 = ja nao estava carregado (sucesso)."""
+
+    def _unload_com(self, exc):
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            if exc is not None:
+                raise exc
+            return _CtxResp()
+
+        with unittest.mock.patch.object(urllib.request, "urlopen", fake_urlopen):
+            return Brain("qwen3:4b", prompts=_PROMPTS).unload()
+
+    def test_sucesso_sem_aviso(self):
+        self.assertIsNone(self._unload_com(None))
+
+    def test_404_e_sucesso(self):  # nada carregado -> nada a soltar
+        self.assertIsNone(self._unload_com(urllib.error.HTTPError(
+            "http://x/api/generate", 404, "Not Found", {}, None)))
+
+    def test_ollama_fora_avisa_sem_levantar(self):
+        aviso = self._unload_com(OSError("connection refused"))
+        self.assertIn("Ollama", aviso)
+
+    def test_manda_keep_alive_zero(self):
+        import json
+        import urllib.request
+
+        captured = {}
+
+        def fake_urlopen(req, timeout=None):
+            captured["body"] = req.data
+            return _CtxResp()
+
+        with unittest.mock.patch.object(urllib.request, "urlopen", fake_urlopen):
+            Brain("qwen3:4b", prompts=_PROMPTS).unload()
+        self.assertEqual(json.loads(captured["body"])["keep_alive"], 0)
+
+
 class _CtxResp:
     def __enter__(self): return self
     def __exit__(self, *a): return False

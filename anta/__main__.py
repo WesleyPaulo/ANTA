@@ -18,6 +18,8 @@ import sys
 import threading
 from pathlib import Path
 
+from anta.core.states import State, emit
+
 # Evento disparado por qualquer fonte de atalho (pynput ou SIGUSR1).
 _trigger = threading.Event()
 
@@ -69,10 +71,11 @@ class Session:
     pipeline ao encerrar. Isolada de run() (que so faz wiring de ciclo de vida)
     para ser testavel com fakes de recorder/pipeline/notify."""
 
-    def __init__(self, recorder, pipeline, notify=_notify) -> None:
+    def __init__(self, recorder, pipeline, notify=_notify, on_state=None) -> None:
         self.recorder = recorder
         self.pipeline = pipeline
         self.notify = notify
+        self.on_state = on_state  # None no daemon CLI -> emit() vira no-op
         self.on = False
 
     def toggle(self) -> None:
@@ -81,8 +84,10 @@ class Session:
                 self.recorder.start()
                 self.on = True
                 self.notify("gravando... (aperte de novo para encerrar)")
+                emit(self.on_state, State.OUVINDO)
             except Exception as e:  # noqa: BLE001
                 self.notify(f"nao consegui abrir o microfone: {e}")
+                emit(self.on_state, State.ERRO, code="mic", text=str(e))
             return
         # 2a pressao: encerra e roda o pipeline
         self.on = False
@@ -90,21 +95,25 @@ class Session:
             audio = self.recorder.stop()
         except Exception as e:  # noqa: BLE001
             self.notify(f"erro ao encerrar a gravacao: {e}")
+            emit(self.on_state, State.ERRO, text=str(e))
             return
         self.notify("processando...")
+        emit(self.on_state, State.PROCESSANDO)
         try:
-            feedback = self.pipeline.run(audio, on_progress=self.notify)
+            feedback = self.pipeline.run(audio, on_progress=self.notify, on_state=self.on_state)
         except Exception as e:  # noqa: BLE001
             import traceback
 
             traceback.print_exc()  # completo no console, pra diagnostico
             self.notify(f"erro no pipeline: {_short_err(e)}")
+            emit(self.on_state, State.ERRO, text=_short_err(e))
         else:
             self.notify(feedback)
         finally:
             # o loop ja volta a esperar o atalho quando toggle() retorna, mas nada
             # dizia isso: o usuario ficava sem saber se a ANTA morreu ou esta pronta.
             self.notify("pronto — aperte o atalho para falar de novo.")
+            emit(self.on_state, State.PRONTO)
 
 
 def run() -> None:

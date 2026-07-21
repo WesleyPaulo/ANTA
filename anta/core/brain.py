@@ -146,19 +146,10 @@ class Brain:
         nao. O chamador DEVE mostrar essa mensagem: um 404 aqui significa que o
         modelo nao foi puxado, e entao TODA fala vai falhar — melhor dizer no
         boot do que deixar o usuario descobrir na primeira frase."""
-        import json
         import urllib.error
-        import urllib.request
 
-        base = self.base_url.rsplit("/v1", 1)[0]  # http://host:11434/v1 -> raiz nativa
-        payload = json.dumps({"model": self.llm, "keep_alive": -1}).encode("utf-8")
-        req = urllib.request.Request(
-            f"{base}/api/generate", data=payload,
-            headers={"Content-Type": "application/json"},
-        )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                r.read()
+            self._post_keep_alive(-1)  # -1 = fixa na VRAM indefinidamente
             return None
         except urllib.error.HTTPError as e:  # antes de OSError: HTTPError herda dele
             if e.code == 404:  # modelo ausente no Ollama: erro de config, nao de rede
@@ -167,6 +158,37 @@ class Brain:
             return f"o Ollama recusou o preload de '{self.llm}' (HTTP {e.code})."
         except (OSError, ValueError) as e:  # noqa: BLE001 - Ollama fora do ar/URL ruim
             return f"nao consegui falar com o Ollama em {self.base_url} ({e})."
+
+    def unload(self) -> str | None:
+        """Solta o modelo da VRAM (keep_alive:0 no endpoint nativo). Contraparte de
+        warm(): o botao "descarregar modelo" da GUI libera a VRAM sem fechar o app.
+        Best-effort: None se ok, senao uma mensagem. 404 = ja nao estava carregado."""
+        import urllib.error
+
+        try:
+            self._post_keep_alive(0)  # 0 = descarrega imediatamente
+            return None
+        except urllib.error.HTTPError as e:
+            if e.code == 404:  # nada carregado -> nada a soltar, sucesso
+                return None
+            return f"o Ollama recusou o unload de '{self.llm}' (HTTP {e.code})."
+        except (OSError, ValueError) as e:  # noqa: BLE001
+            return f"nao consegui falar com o Ollama em {self.base_url} ({e})."
+
+    def _post_keep_alive(self, keep_alive: int) -> None:
+        """POST /api/generate (sem prompt) no endpoint NATIVO do Ollama: so
+        carrega/solta o modelo conforme keep_alive. Levanta em erro (o chamador trata)."""
+        import json
+        import urllib.request
+
+        base = self.base_url.rsplit("/v1", 1)[0]  # http://host:11434/v1 -> raiz nativa
+        payload = json.dumps({"model": self.llm, "keep_alive": keep_alive}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{base}/api/generate", data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            r.read()
 
     def decide(self, texto: str, history: list[tuple[str, str]] | None = None) -> Decisao:
         """Escolhe a acao. `history` = janela de conversa recente [(fala, rotulo)] para

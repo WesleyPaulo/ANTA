@@ -32,6 +32,7 @@ class _FakeBrain:
     def __init__(self, decisao):
         self.decisao = decisao
         self.history_seen = None
+        self.unloaded = False
 
     def decide(self, texto, history=None):
         self.history_seen = history
@@ -39,6 +40,10 @@ class _FakeBrain:
 
     def warm(self):
         pass
+
+    def unload(self):
+        self.unloaded = True
+        return None
 
     def answer(self, pergunta, contexto):
         return "sintese"
@@ -96,6 +101,39 @@ class PipelineTest(unittest.TestCase):
             mod.write_memory_note = orig
         self.assertEqual(fb, "ok")            # comando primario preservado
         self.assertEqual(len(p._history), 1)  # turno nao foi perdido
+
+    # --- M3: unload + canal on_state ---
+    def test_unload_solta_llm_e_larga_stt(self):
+        dec = Decisao(escolha=Responder(texto="ok"))
+        p = self._pipeline("faca X", dec)
+        p.transcriber._model = "MODELO_CARREGADO"  # simula Whisper na RAM
+        aviso = p.unload()
+        self.assertIsNone(aviso)
+        self.assertTrue(p.brain.unloaded)          # soltou o LLM (keep_alive:0)
+        self.assertIsNone(p.transcriber._model)    # largou o STT (recarrega lazy)
+
+    def test_run_emite_respondendo(self):
+        dec = Decisao(escolha=Responder(texto="ok"))
+        p = self._pipeline("faca X", dec)
+        estados = []
+        p.run(_FALA, on_state=lambda s, **pl: estados.append((s, pl)))
+        nomes = [s for s, _ in estados]
+        self.assertIn("respondendo", nomes)
+
+    def test_run_silencio_emite_erro_mic(self):
+        dec = Decisao(escolha=Responder(texto="ok"))
+        p = self._pipeline("faca X", dec)
+        estados = []
+        fb = p.run(_AUDIO, on_state=lambda s, **pl: estados.append((s, pl)))  # 1s de silencio
+        self.assertIn("microfone", fb)
+        erros = [(s, pl) for s, pl in estados if s == "erro"]
+        self.assertTrue(erros and erros[0][1].get("code") == "mic")
+
+    def test_run_sem_on_state_inalterado(self):
+        # regressao: o daemon CLI chama run() sem on_state -> comportamento identico
+        dec = Decisao(escolha=Responder(texto="ok"))
+        p = self._pipeline("faca X", dec)
+        self.assertEqual(p.run(_FALA), "ok")
 
     def test_sem_memoria_nao_escreve(self):
         p = self._pipeline("oi", Decisao(escolha=Responder(texto="ok")))
