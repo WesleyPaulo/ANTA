@@ -65,6 +65,62 @@ export interface UserConfig {
   configured: boolean
 }
 
+export interface DeviceInfo {
+  name: string
+}
+
+export interface VoiceCatalog {
+  oficiais: { nome: string; desc: string }[]
+  comunidade: { nome: string }[]
+  instaladas: string[]
+  default: string
+}
+
+export type ComponentKind = 'llm' | 'stt' | 'tts_voice' | 'rag_embedder'
+
+export interface ComponentStatus {
+  kind: ComponentKind
+  key: string
+  installed: boolean | null // null = idempotente/desconhecido (STT/embedding)
+}
+
+export interface DownloadResult {
+  ok: boolean
+  kind: string
+  key: string
+  msg?: string
+  path?: string | null
+}
+
+// Empurrado pelo Python via window.__antaProgress durante download_component.
+export interface ProgressEvent {
+  kind: string
+  key: string
+  phase: 'start' | 'line' | 'done' | 'error'
+  text?: string
+  pct?: number | null
+}
+
+export interface TestResult {
+  ok: boolean
+  msg?: string
+  pico?: number
+  rms?: number
+}
+
+export interface HotkeyValidation {
+  valid: boolean
+  normalized: string
+  msg: string
+}
+
+export interface SaveResult {
+  ok: boolean
+  path?: string
+  warnings?: string[]
+  msg?: string
+}
+
 // Facade tipada. Os nomes camelCase mapeiam para os metodos snake_case do Python.
 export interface ConfigApiFacade {
   ping(): Promise<string>
@@ -73,4 +129,14 @@ export interface ConfigApiFacade {
   getHardware(): Promise<Hardware>
   getCatalog(): Promise<Catalog>
   getConfig(): Promise<UserConfig>
+  listMicrophones(): Promise<DeviceInfo[]>
+  listSpeakers(): Promise<DeviceInfo[]>
+  listVoices(): Promise<VoiceCatalog>
+  componentStatus(kind: ComponentKind, key: string): Promise<ComponentStatus>
+  downloadComponent(kind: ComponentKind, key: string): Promise<DownloadResult>
+  testMicrophone(device?: string | null, seconds?: number): Promise<TestResult>
+  testTts(voice?: string | null, device?: string | null, text?: string): Promise<TestResult>
+  testModelLoad(family: string, mode: string): Promise<TestResult>
+  validateHotkey(hotkey: string): Promise<HotkeyValidation>
+  save(cfg: Partial<UserConfig>): Promise<SaveResult>
 }

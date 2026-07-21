@@ -66,6 +66,16 @@ export const configApi: ConfigApiFacade = {
   getHardware: () => callApi('get_hardware'),
   getCatalog: () => callApi('get_catalog'),
   getConfig: () => callApi('get_config'),
+  listMicrophones: () => callApi('list_microphones'),
+  listSpeakers: () => callApi('list_speakers'),
+  listVoices: () => callApi('list_voices'),
+  componentStatus: (kind, key) => callApi('component_status', kind, key),
+  downloadComponent: (kind, key) => callApi('download_component', kind, key),
+  testMicrophone: (device = null, seconds = 2.0) => callApi('test_microphone', device, seconds),
+  testTts: (voice = null, device = null, text) => callApi('test_tts', voice, device, text),
+  testModelLoad: (family, mode) => callApi('test_model_load', family, mode),
+  validateHotkey: (hotkey) => callApi('validate_hotkey', hotkey),
+  save: (cfg) => callApi('save', cfg),
 }
 
 export * from './types'
