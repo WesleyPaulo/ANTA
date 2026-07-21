@@ -255,7 +255,7 @@ class InstallerApp(App):
             web_engine=self._cfg.web_engine,
             web_searxng_url=self._cfg.web_searxng_url,
         )
-        path = save_user_config(cfg)
+        path = save_user_config(cfg, configured=True)  # setup TUI concluido com sucesso
         log(f"Config salva em {path}")
 
         # 4.5. Prompts editaveis: escreve o prompts.toml padrao (sem sobrescrever edicoes)

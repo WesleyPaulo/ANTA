@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import os
+import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+
+# Versao do schema da config. Suba quando um campo mudar de forma incompativel
+# (migracao). Campos novos com default NAO exigem bump — a config antiga ainda le.
+CONFIG_SCHEMA_VERSION = 1
 
 
 @dataclass
@@ -32,7 +37,12 @@ class Family:
 def default_modes_path() -> Path:
     """`modes.yaml` na RAIZ DO REPO, resolvido a partir deste arquivo — nunca do CWD.
     O daemon roda de qualquer pasta (autostart do login abre com o CWD do sistema),
-    entao um caminho relativo daria FileNotFoundError."""
+    entao um caminho relativo daria FileNotFoundError.
+
+    Num build PyInstaller nao ha "raiz do repo": o `parents[2]` cai fora do bundle.
+    O spec adiciona `modes.yaml` aos `datas`, extraidos em `sys._MEIPASS` no runtime."""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", ".")) / "modes.yaml"
     return Path(__file__).resolve().parents[2] / "modes.yaml"
 
 
@@ -90,6 +100,8 @@ class UserConfig:
     web: bool = False                  # OPT-IN: busca na web (rompe o offline!) default off
     web_engine: str = "duckduckgo"     # duckduckgo (keyless) | searxng
     web_searxng_url: str | None = None # URL da instancia SearXNG (se web_engine=searxng)
+    schema_version: int = CONFIG_SCHEMA_VERSION  # versao do schema (p/ migracao futura)
+    configured: bool = False           # setup concluido? o runtime abre o Configurador se False
 
     def mode_or_default(self, modes: list[Mode]) -> Mode:
         """Resolve o Mode correspondente, caindo no mais leve se o nome sumir."""
@@ -140,6 +152,11 @@ def load_user_config(path: str | Path | None = None) -> UserConfig:
         web=bool(data.get("web", False)),  # ausente -> desligado (offline por padrao)
         web_engine=str(data.get("web_engine") or "duckduckgo"),  # str(): tolera TOML malformado
         web_searxng_url=_clean(data.get("web_searxng_url", "")),
+        schema_version=int(data.get("schema_version", 1)),
+        # Chave ausente MAS arquivo existe = config antiga da TUI, que so gravava em
+        # sucesso -> ja esta configurado. So um UserConfig() sem arquivo (acima) nasce
+        # nao-configurado, que e o sinal p/ o runtime abrir o Configurador.
+        configured=bool(data.get("configured", True)),
     )
 
 
@@ -149,12 +166,20 @@ def _toml_str(value: str) -> str:
     return f'"{escaped}"'
 
 
-def save_user_config(cfg: UserConfig, path: str | Path | None = None) -> Path:
-    """Grava a config em TOML. Cria o diretorio se preciso. Retorna o caminho."""
+def save_user_config(
+    cfg: UserConfig, path: str | Path | None = None, *, configured: bool | None = None
+) -> Path:
+    """Grava a config em TOML. Cria o diretorio se preciso. Retorna o caminho.
+
+    `configured`: sobrescreve a flag na hora de gravar (o Configurador passa True
+    ao concluir o setup). Se None, usa o valor de `cfg.configured`."""
     p = Path(path) if path is not None else config_path()
     p.parent.mkdir(parents=True, exist_ok=True)
+    is_configured = cfg.configured if configured is None else configured
     lines = [
         "# Gerado pelo instalador do ANTA. Editar a mao tambem funciona.",
+        f"schema_version = {int(cfg.schema_version)}",
+        f"configured = {'true' if is_configured else 'false'}",
         f"family = {_toml_str(cfg.family)}",
         f"mode = {_toml_str(cfg.mode)}",
         f"mic_device = {_toml_str(cfg.mic_device or '')}",

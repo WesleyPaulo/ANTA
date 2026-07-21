@@ -141,5 +141,51 @@ class TestUserConfigRoundTrip(unittest.TestCase):
         self.assertEqual(UserConfig(family="sumiu").family_or_default(fams), fams[0])
 
 
+class TestSchemaVersionEConfigured(unittest.TestCase):
+    def test_round_trip_schema_e_configured(self):
+        cfg = UserConfig(schema_version=1, configured=True)
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "config.toml"
+            save_user_config(cfg, path)
+            texto = path.read_text(encoding="utf-8")
+            got = load_user_config(path)
+        self.assertEqual(got.schema_version, 1)
+        self.assertTrue(got.configured)
+        self.assertIn("schema_version = 1", texto)
+        self.assertIn("configured = true", texto)
+
+    def test_kwarg_configured_sobrescreve(self):
+        # o Configurador passa configured=True ao concluir, mesmo com cfg.configured=False
+        cfg = UserConfig(configured=False)
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "config.toml"
+            save_user_config(cfg, path, configured=True)
+            got = load_user_config(path)
+        self.assertTrue(got.configured)
+
+    def test_sem_arquivo_nasce_nao_configurado(self):
+        # o sinal p/ o runtime abrir o Configurador: default (sem arquivo) = False
+        with tempfile.TemporaryDirectory() as d:
+            got = load_user_config(Path(d) / "nao-existe.toml")
+        self.assertFalse(got.configured)
+
+    def test_config_antiga_sem_a_chave_vira_configurado(self):
+        # retrocompat: arquivo existe mas sem 'configured' = TUI antiga (so gravava
+        # em sucesso) -> ja configurado. Nao pode forcar re-setup em quem ja instalou.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.toml"
+            p.write_text('family = "qwen3"\nmode = "leve"\n', encoding="utf-8")
+            got = load_user_config(p)
+        self.assertTrue(got.configured)
+        self.assertEqual(got.schema_version, 1)  # ausente -> 1
+
+    def test_configured_false_explicito_sobrevive(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.toml"
+            p.write_text("configured = false\n", encoding="utf-8")
+            got = load_user_config(p)
+        self.assertFalse(got.configured)
+
+
 if __name__ == "__main__":
     unittest.main()

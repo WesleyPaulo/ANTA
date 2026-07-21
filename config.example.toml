@@ -1,4 +1,6 @@
 # Gerado pelo instalador. Copie para config.toml (ou o instalador cria).
+schema_version = 1            # versao do schema (nao editar; usado para migracao)
+configured = true            # setup concluido? (o runtime abre o Configurador se false)
 family = "qwen3"              # familia de modelos: qwen3 | gemma | deepseek
 mode = "leve"                 # tier: batata|ultra-leve|leve|normal|pesado|muito-pesado|ultra
 mic_device = ""               # NOME do microfone (vazio = default do sistema)
