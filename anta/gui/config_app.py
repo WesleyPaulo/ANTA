@@ -38,14 +38,15 @@ def main() -> None:
         sys.exit(1)
 
     api = ConfigApi()
-    webview.create_window(
+    window = webview.create_window(
         _TITLE,
         url=assets.web_url(_APP),
         js_api=api,
-        width=1000,
-        height=720,
-        min_size=(820, 600),
+        width=1040,
+        height=760,
+        min_size=(880, 640),
     )
+    api.set_window(window)  # p/ empurrar progresso de download via evaluate_js
     # debug=True (dev) liga o devtools/inspetor; no build fica limpo.
     webview.start(debug=assets.is_dev())
 

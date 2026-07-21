@@ -19,6 +19,14 @@ def _devices():
     ]
 
 
+def _mixed_devices():
+    return [
+        {"name": "Alto-falantes", "max_input_channels": 0, "max_output_channels": 2},
+        {"name": "USB Mic (Yeti)", "max_input_channels": 2, "max_output_channels": 0},
+        {"name": "Fone BT", "max_input_channels": 1, "max_output_channels": 2},
+    ]
+
+
 def _fake_sd(devices):
     fake = mock.MagicMock()
     fake.query_devices.return_value = devices
@@ -50,6 +58,18 @@ class TestResolveDevice(unittest.TestCase):
     def test_nome_sumido_cai_no_default(self):
         with _fake_sd(_devices()):
             self.assertIsNone(capture._resolve_device("Microfone Inexistente"))
+
+
+class TestListDevices(unittest.TestCase):
+    def test_list_input_so_entradas(self):
+        with _fake_sd(_mixed_devices()):
+            nomes = [d["name"] for d in capture.list_input_devices()]
+        self.assertEqual(nomes, ["USB Mic (Yeti)", "Fone BT"])  # so entrada > 0
+
+    def test_list_output_so_saidas(self):
+        with _fake_sd(_mixed_devices()):
+            nomes = [d["name"] for d in capture.list_output_devices()]
+        self.assertEqual(nomes, ["Alto-falantes", "Fone BT"])  # so saida > 0
 
 
 if __name__ == "__main__":

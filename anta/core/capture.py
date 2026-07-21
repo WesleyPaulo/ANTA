@@ -52,6 +52,23 @@ def list_input_devices() -> list[dict]:
     return [dict(d) for _, d in _input_devices()]
 
 
+def _output_devices():
+    """(indice_global, device) apenas dos devices de SAIDA (alto-falantes)."""
+    import sounddevice as sd
+
+    for idx, d in enumerate(sd.query_devices()):
+        if d.get("max_output_channels", 0) > 0:
+            yield idx, d
+
+
+def list_output_devices() -> list[dict]:
+    """Devices de SAIDA para escolher a saida do TTS no Configurador.
+
+    Espelha list_input_devices (mesmo motivo: guardar o NOME, nao o indice).
+    A resolucao nome->indice na hora de falar ja existe em tts._resolve_output."""
+    return [dict(d) for _, d in _output_devices()]
+
+
 def _resolve_device(device_name: str | None) -> int | None:
     """Nome do device -> indice de entrada. None (default do sistema) se o
     nome estiver vazio ou nao existir mais (ex.: headset desconectado)."""

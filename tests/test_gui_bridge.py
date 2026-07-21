@@ -2,8 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
-from anta.core.config import UserConfig, save_user_config
+from anta.core.config import UserConfig, load_user_config, save_user_config
 from anta.gui.bridge_config import ConfigApi
 
 
@@ -110,6 +111,110 @@ class TestGetConfig(unittest.TestCase):
             cfg = api.get_config()
         self.assertFalse(cfg["configured"])
         self.assertEqual(cfg["family"], "qwen3")
+
+
+class TestDevices(unittest.TestCase):
+    def test_list_microphones(self):
+        fake = [{"name": "USB Mic", "max_input_channels": 2}]
+        with mock.patch("anta.core.capture.list_input_devices", return_value=fake):
+            mics = ConfigApi().list_microphones()
+        self.assertEqual(mics, [{"name": "USB Mic"}])
+
+    def test_list_speakers(self):
+        fake = [{"name": "Alto-falantes", "max_output_channels": 2}]
+        with mock.patch("anta.core.capture.list_output_devices", return_value=fake):
+            spk = ConfigApi().list_speakers()
+        self.assertEqual(spk, [{"name": "Alto-falantes"}])
+
+
+class TestValidateHotkey(unittest.TestCase):
+    def test_ok_normaliza(self):
+        r = ConfigApi().validate_hotkey("Ctrl+Alt+Space")
+        self.assertTrue(r["valid"])
+        self.assertEqual(r["normalized"], "ctrl+alt+space")
+
+    def test_sem_modificador_invalido(self):
+        # "a+b" tem 2 tokens mas nenhum modificador -> invalido
+        self.assertFalse(ConfigApi().validate_hotkey("a+b")["valid"])
+
+    def test_uma_tecla_so_invalido(self):
+        self.assertFalse(ConfigApi().validate_hotkey("a")["valid"])
+
+    def test_token_vazio_invalido(self):
+        self.assertFalse(ConfigApi().validate_hotkey("ctrl+")["valid"])
+
+
+class TestComponentStatusPassthrough(unittest.TestCase):
+    def test_delega_para_downloads(self):
+        with mock.patch("anta.gui.downloads.component_status",
+                        return_value={"installed": True}) as cs:
+            r = ConfigApi().component_status("llm", "qwen3:4b")
+        cs.assert_called_once_with("llm", "qwen3:4b")
+        self.assertTrue(r["installed"])
+
+
+class TestDownloadProgress(unittest.TestCase):
+    def test_push_progress_chama_evaluate_js(self):
+        win = mock.MagicMock()
+        api = ConfigApi()
+        api.set_window(win)
+        api._push_progress({"phase": "line", "pct": 50})
+        self.assertTrue(win.evaluate_js.called)
+        js = win.evaluate_js.call_args[0][0]
+        self.assertIn("__antaProgress", js)
+        self.assertIn("50", js)
+
+    def test_push_progress_sem_janela_e_noop(self):
+        ConfigApi()._push_progress({"x": 1})  # nao levanta
+
+    def test_download_component_encaminha_progresso(self):
+        with mock.patch("anta.gui.downloads.download",
+                        return_value={"ok": True}) as dl:
+            ConfigApi().download_component("stt", "turbo")
+        dl.assert_called_once()
+        self.assertEqual(dl.call_args[0], ("stt", "turbo"))
+
+
+class TestSave(unittest.TestCase):
+    def test_grava_configured_true_e_roda_side_effects(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.toml"
+            api = ConfigApi(config_path=str(p))
+            with mock.patch("anta.core.prompts.write_default_prompts") as wp, \
+                 mock.patch("anta.platform.hotkey.setup_hotkey", return_value="ok") as sh:
+                r = api.save({"family": "gemma", "mode": "pesado", "hotkey": "ctrl+alt+p",
+                              "tts": True, "mic_device": "USB Mic"})
+            got = load_user_config(p)
+        self.assertTrue(r["ok"])
+        self.assertTrue(got.configured)
+        self.assertEqual(got.family, "gemma")
+        self.assertEqual(got.mode, "pesado")
+        self.assertEqual(got.mic_device, "USB Mic")
+        self.assertTrue(got.tts)
+        wp.assert_called_once()
+        sh.assert_called_once()
+
+    def test_side_effect_falho_vira_warning_nao_derruba(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.toml"
+            api = ConfigApi(config_path=str(p))
+            with mock.patch("anta.core.prompts.write_default_prompts",
+                            side_effect=RuntimeError("x")), \
+                 mock.patch("anta.platform.hotkey.setup_hotkey", side_effect=RuntimeError("y")):
+                r = api.save({"family": "qwen3", "mode": "leve"})
+        self.assertTrue(r["ok"])  # o config foi gravado; side effects sao best-effort
+        self.assertEqual(len(r["warnings"]), 2)
+
+    def test_string_vazia_vira_none(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "config.toml"
+            api = ConfigApi(config_path=str(p))
+            with mock.patch("anta.core.prompts.write_default_prompts"), \
+                 mock.patch("anta.platform.hotkey.setup_hotkey"):
+                api.save({"mic_device": "  ", "obsidian_vault": ""})
+            got = load_user_config(p)
+        self.assertIsNone(got.mic_device)
+        self.assertIsNone(got.obsidian_vault)
 
 
 if __name__ == "__main__":
