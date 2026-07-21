@@ -1,0 +1,16 @@
+{
+  "name": "anta-frontend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Frontend desktop do ANTA (Configurador + App de execucao). Monorepo npm.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @anta/configurador",
+    "build": "npm run build -w @anta/configurador",
+    "preview": "npm run preview -w @anta/configurador",
+    "test": "npm run test -w @anta/bridge"
+  }
+}
