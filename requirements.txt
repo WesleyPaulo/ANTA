@@ -35,4 +35,11 @@ fastembed>=0.3
 # via `ddgs` (SearXNG usa so a stdlib). Importado sob demanda.
 ddgs>=6.0
 
+# GUI desktop (`anta config`): janela nativa carregando o front Vue (dist/ do Vite).
+# Um processo Python so, sem sidecar. Importado sob demanda (so ao abrir a GUI).
+pywebview>=5.0
+# Deteccao de RAM para o Configurador (o disco usa a stdlib). Import preguicoso,
+# com fallback stdlib se ausente (anta/gui/detection.py).
+psutil>=5.9
+
 # Externos (NAO via pip): Ollama (ollama.com) e pandoc (geracao de documentos)

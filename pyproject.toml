@@ -24,6 +24,7 @@ packages = [
     "anta.actions",
     "anta.actions.handlers",
     "anta.core",
+    "anta.gui",
     "anta.installer",
     "anta.platform",
 ]

@@ -1,6 +1,7 @@
 """Entrypoint.
 
-  python -m anta          -> abre o instalador (TUI)
+  python -m anta          -> abre o instalador (TUI) — fallback headless
+  python -m anta config   -> abre o Configurador (GUI PyWebview + Vue)
   python -m anta run      -> roda o assistente (daemon quente, push-to-talk)
   python -m anta toggle   -> alterna a gravacao do daemon (usado pelo atalho do SO
                             no Wayland, onde apps nao capturam teclas globais)
@@ -354,6 +355,13 @@ def main() -> None:
     if arg == "mic":
         mic_check()
         return
+    if arg == "config":  # Configurador GUI (PyWebview + Vue)
+        from anta.gui.config_app import main as config_gui
+
+        config_gui()
+        return
+    # Sem argumento: a TUI Textual fica como fallback headless (SSH/servidor/sem
+    # display). Nos builds empacotados a GUI vira o padrao (via launcher, fase M5).
     from anta.installer.app import main as installer
 
     installer()
