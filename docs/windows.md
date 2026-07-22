@@ -5,6 +5,12 @@
 > **implementado e não validado ponta-a-ponta**. Este guia é o fluxo pretendido; o
 > checklist no fim serve pra registrar o que quebrar na primeira validação real.
 
+> **Interface gráfica (novo):** este guia cobre a **TUI** (terminal), que é o caminho
+> validado. Há também um **Configurador** (`anta config`) e um **HUD** na bandeja
+> (`anta app`) em janela — precisam do front buildado (`cd frontend && npm ci && npm run build`;
+> o WebView2 já vem no Windows). O passo a passo unificado (TUI/GUI/exe) está em
+> [instalacao.md](instalacao.md). A TUI segue como fallback.
+
 ## Pré-requisitos
 
 - Windows 10/11.

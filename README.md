@@ -89,7 +89,9 @@ Externos (nao via pip): **Ollama** e **pandoc**.
 
 ## Instalacao (usuario)
 
-Um comando instala os pre-requisitos (libs nativas, pandoc, Ollama), prepara o
+**Passo a passo completo por SO (TUI, GUI e exe empacotado): [docs/instalacao.md](docs/instalacao.md).**
+
+Resumo — um comando traz os pre-requisitos (libs nativas, pandoc, Ollama), prepara o
 ambiente com [uv](https://docs.astral.sh/uv/) e abre o instalador TUI:
 
 ```bash
@@ -97,13 +99,21 @@ ambiente com [uv](https://docs.astral.sh/uv/) e abre o instalador TUI:
 powershell -ExecutionPolicy Bypass -File .\install.ps1    # Windows
 ```
 
+**Interface grafica (novo):** ha um **Configurador** (`anta config`) e um **App de execucao**
+com HUD na bandeja (`anta app`), em Vue 3 + PyWebview (mesmo processo Python). Precisam do
+front buildado (`cd frontend && npm ci && npm run build`) e, no Linux, do WebKit do pywebview.
+A TUI continua como **fallback headless**. Detalhes em [docs/instalacao.md](docs/instalacao.md).
+
 ## Instalacao (dev)
 
 ```bash
 pip install -r requirements.txt
 pip install -e . --no-deps   # instala o pacote: `anta` roda de qualquer pasta
-anta                         # abre o instalador (TUI)   (ou: python -m anta)
-anta run                     # roda o assistente (apos configurar)
+cd frontend && npm ci && npm run build && cd ..   # front (para a GUI)
+anta                         # instalador TUI (fallback)  (ou: python -m anta)
+anta config                  # Configurador (GUI)
+anta app                     # App de execucao (HUD na bandeja)
+anta run                     # daemon headless (apos configurar)
 anta mic                     # diagnostico: qual mic foi resolvido + nivel do sinal
 ```
 
@@ -120,13 +130,17 @@ autostart do login roda com outro CWD.
 
 ```
 anta/
-  installer/   TUI Textual + deteccao de VRAM (hardware.py)
-  core/        capture · stt · brain · pipeline · config · rag · prompts · websearch
+  installer/   TUI Textual (fallback) + deteccao de VRAM (hardware.py)
+  gui/         apps desktop (PyWebview): bridge_config/runtime · config_app · runtime_app
+               · assets · detection · downloads · state · tray · launcher
+  core/        capture · stt · brain · pipeline · config · states · rag · prompts · websearch
   actions/     schema Pydantic · executor (fachada) · registry · apps (whitelist)
     handlers/  um arquivo por acao (criar_nota, ..., consultar, resumir, buscar_web)
   platform/    detect (SO/sessao) · hotkey (atalho por SO)
+frontend/      monorepo Vue 3 + Vite + Tailwind (bridge · ui · apps/configurador · apps/runtime)
+packaging/     PyInstaller (anta.spec) + instaladores (Inno/AppImage) + build.sh/ps1
 modes.yaml     manifesto dos modos
-docs/atalhos.md instrucoes de atalho por sistema
+docs/          instalacao · atalhos · windows · frontend-fases · validacao-nativa
 ```
 
 ## Roadmap
