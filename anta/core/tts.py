@@ -149,18 +149,34 @@ def _download(url: str, dest: Path) -> None:
     tmp.replace(dest)  # so vira o arquivo final se o download completou
 
 
+def _tts_warn(msg: str, *, exc: bool = False) -> None:
+    """Loga a falha do TTS (best-effort) em vez de engolir em silencio. No app de
+    janela o stderr vai pro anta.log — sem isso, TTS mudo por bundle incompleto
+    (piper/onnxruntime/espeak-ng) fica invisivel."""
+    import sys
+
+    print(f"[anta][tts] {msg}", file=sys.stderr)
+    if exc:
+        import traceback
+
+        traceback.print_exc()
+
+
 def speak(texto: str, voice_path: str | Path | None = None,
           output_device: str | None = None) -> None:
-    """TTS best-effort: sintetiza `texto` com Piper e reproduz. No-op silencioso
-    se o piper nao estiver instalado ou a voz nao existir."""
+    """TTS best-effort: sintetiza `texto` com Piper e reproduz. No-op se o piper
+    nao estiver instalado ou a voz nao existir — mas LOGA o motivo (o handler nunca
+    cai, mas a falha nao fica silenciosa)."""
     if not texto:
         return
     voice = Path(voice_path) if voice_path else default_voice_path()
     if not voice.exists():
+        _tts_warn(f"voz nao encontrada em {voice}")
         return
     try:
         pcm, sample_rate = _synthesize(texto, voice)
-    except Exception:  # noqa: BLE001 - piper ausente / voz invalida: nunca derruba o handler
+    except Exception as e:  # noqa: BLE001 - piper ausente / voz invalida / bundle incompleto
+        _tts_warn(f"falha ao sintetizar ({e.__class__.__name__}: {e})", exc=True)
         return
     _play(pcm, sample_rate, output_device)
 
@@ -185,8 +201,8 @@ def _play(pcm: bytes, sample_rate: int, output_device: str | None = None) -> Non
         audio = np.frombuffer(pcm, dtype=np.int16)
         sd.play(audio, samplerate=sample_rate, device=_resolve_output(output_device))
         sd.wait()
-    except Exception:  # noqa: BLE001 - sem saida de audio disponivel: no-op
-        pass
+    except Exception as e:  # noqa: BLE001 - sem saida de audio disponivel
+        _tts_warn(f"falha ao reproduzir ({e.__class__.__name__}: {e})", exc=True)
 
 
 def _resolve_output(device_name: str | None) -> int | None:

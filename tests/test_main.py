@@ -149,12 +149,23 @@ class TestSessionStates(unittest.TestCase):
         s.toggle()
         self.assertEqual(states, ["erro"])  # nao entrou em 'ouvindo'
 
-    def test_erro_no_pipeline_emite_erro_e_volta_a_pronto(self):
+    def test_erro_no_pipeline_fica_no_erro(self):
+        # o HUD mostra o erro e FICA nele ate a proxima fala (nao sobrescreve com pronto)
         s, states = self._capture(_FakeRecorder(audio="A"), _FakePipeline(fail=True))
         s.toggle()
         s.toggle()
-        self.assertIn("erro", states)
-        self.assertEqual(states[-1], "pronto")  # sempre volta a pronto
+        self.assertEqual(states, ["ouvindo", "processando", "erro"])
+
+    def test_pronto_carrega_a_resposta(self):
+        # regressao: a resposta so ia pro log; agora o PRONTO leva o texto pro HUD
+        payloads = []
+        s = Session(_FakeRecorder(audio="A"), _FakePipeline(feedback="a resposta"),
+                    notify=lambda *_: None,
+                    on_state=lambda state, **pl: payloads.append((state, pl)))
+        s.toggle()
+        s.toggle()
+        pronto = [pl for st, pl in payloads if st == "pronto"]
+        self.assertEqual(pronto[-1].get("text"), "a resposta")
 
     def test_cli_sem_on_state_nao_quebra(self):
         # regressao: o daemon CLI nao passa on_state -> emit() vira no-op

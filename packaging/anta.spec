@@ -17,7 +17,7 @@ roteia por argv/`configured`.
 """
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 ROOT = Path(SPECPATH).parent  # SPECPATH = .../packaging ; ROOT = raiz do repo
 
@@ -47,10 +47,24 @@ for _pkg in ("pynput", "pystray", "webview"):
     except Exception:
         pass
 
+# TTS (piper) + onnxruntime precisam de DADOS/LIBS nativos que a analise estatica
+# NAO pega: espeak-ng-data (fonemizacao), a lib do piper_phonemize, os .so/.dll do
+# onnxruntime. Sem isso o TTS fica MUDO no bundle (o speak() falha e — agora — loga).
+# collect_all traz datas + binaries + hiddenimports de cada pacote (best-effort).
+binaries = []
+for _pkg in ("piper", "piper_phonemize", "espeakng_loader", "onnxruntime"):
+    try:
+        _d, _b, _h = collect_all(_pkg)
+        datas += _d
+        binaries += _b
+        hiddenimports += _h
+    except Exception:
+        pass
+
 a = Analysis(
     [str(ROOT / "packaging" / "entry.py")],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

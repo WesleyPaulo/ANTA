@@ -105,16 +105,19 @@ class Session:
         except Exception as e:  # noqa: BLE001
             import traceback
 
-            traceback.print_exc()  # completo no console, pra diagnostico
-            self.notify(f"erro no pipeline: {_short_err(e)}")
-            emit(self.on_state, State.ERRO, text=_short_err(e))
-        else:
-            self.notify(feedback)
-        finally:
-            # o loop ja volta a esperar o atalho quando toggle() retorna, mas nada
-            # dizia isso: o usuario ficava sem saber se a ANTA morreu ou esta pronta.
+            traceback.print_exc()  # vai pro anta.log (app de janela nao tem console)
+            short = _short_err(e)
+            self.notify(f"erro no pipeline: {short}")
             self.notify("pronto — aperte o atalho para falar de novo.")
-            emit(self.on_state, State.PRONTO)
+            # HUD mostra o erro e FICA nele ate a proxima fala (nao sobrescreve com pronto).
+            emit(self.on_state, State.ERRO, text=short)
+            return
+        self.notify(feedback)
+        # o loop ja volta a esperar o atalho quando toggle() retorna, mas nada
+        # dizia isso: o usuario ficava sem saber se a ANTA morreu ou esta pronta.
+        self.notify("pronto — aperte o atalho para falar de novo.")
+        # PRONTO carrega a RESPOSTA -> o HUD exibe o texto (antes so ia pro log/voz).
+        emit(self.on_state, State.PRONTO, text=feedback)
 
 
 def run() -> None:

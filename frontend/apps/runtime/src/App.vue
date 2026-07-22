@@ -81,12 +81,20 @@ const orbBreathe = computed(() => (store.state === 'pronto' ? 'orb-breathe' : ''
         <p v-if="meta.hint" class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{{ meta.hint }}</p>
       </div>
 
-      <!-- Texto da resposta / erro -->
+      <!-- Resposta: persiste até a próxima fala (antes só ia pro log/voz) -->
       <p
-        v-if="store.text && (store.state === 'respondendo' || store.state === 'erro')"
-        class="max-h-24 overflow-y-auto rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        v-if="store.resposta && store.state !== 'erro'"
+        class="max-h-32 w-full overflow-y-auto rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200"
       >
-        {{ store.text }}
+        {{ store.resposta }}
+      </p>
+
+      <!-- Erro (com detalhe do backend) -->
+      <p
+        v-else-if="store.state === 'erro' && store.erro && !isMicError"
+        class="max-h-32 w-full overflow-y-auto rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+      >
+        {{ store.erro }}
       </p>
 
       <!-- Fluxo "não ouviu" -> abrir o Configurador (único que escreve o config) -->

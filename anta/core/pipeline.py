@@ -135,7 +135,8 @@ class Pipeline:
         if on_progress is not None:
             on_progress(f"acao: {self._rotulo(decisao)}")
         # RESPONDENDO: o modelo decidiu; agora executa/fala (o TTS bloqueia aqui dentro).
-        emit(on_state, State.RESPONDENDO, text=self._rotulo(decisao))
+        # Sem texto: a RESPOSTA vai no PRONTO (via Session), pra o HUD exibi-la.
+        emit(on_state, State.RESPONDENDO)
         feedback = execute(decisao, self.ctx)
         # canal AUTOMATICO de memoria: grava o fato duravel sinalizado pelo LLM.
         # Pula quando a acao ja e Lembrar (o handler ja gravou) -> evita duplicata.

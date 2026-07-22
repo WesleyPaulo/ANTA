@@ -5,16 +5,22 @@ import { onState, runtimeApi, type RuntimeState, type UserConfig } from '@anta/b
 // assina window.__antaOnState e pinta o estado atual (guia §5).
 export const store = reactive({
   state: 'carregando' as RuntimeState,
-  text: '' as string,
   code: '' as string,
+  resposta: '' as string, // ultima resposta (texto) — persiste ate a proxima fala
+  erro: '' as string, // detalhe do ultimo erro
   config: null as UserConfig | null,
   busy: false,
 
   async init() {
     onState((ev) => {
       store.state = ev.state
-      store.text = ev.text ?? ''
       store.code = ev.code ?? ''
+      if (ev.state === 'ouvindo') {
+        store.resposta = '' // nova fala: limpa a anterior
+        store.erro = ''
+      }
+      if (ev.state === 'erro') store.erro = ev.text ?? ''
+      if (ev.state === 'pronto' && ev.text) store.resposta = ev.text
     })
     // snapshot no mount evita corrida (a janela pode nascer antes da 1a transicao)
     try {
