@@ -6,6 +6,32 @@ quando algo falhar (as falhas só-Windows costumam ser **silenciosas** — peça
 de teorizar). Contexto de build: [../packaging/README.md](../packaging/README.md);
 fases: [frontend-fases.md](frontend-fases.md).
 
+## ✅ Status — Windows FUNCIONAL de ponta a ponta (v0.4.3, 2026-07-22)
+
+Validado em hardware real (Windows), na iteração v0.4.0 → v0.4.3:
+- ✅ **Instalar** (`ANTA-Setup.exe`) + SmartScreen ("Executar assim mesmo")
+- ✅ **Configurador**: detecção real (VRAM/RAM/disco), catálogo, downloads dos componentes,
+  detecção do Ollama, salvar config
+- ✅ **HUD**: máquina de estados, **atalho global + botão** gravam, transcrição correta,
+  **resposta exibida na tela**, **TTS falando**
+- ✅ **Descarregar modelo** (libera VRAM de fato)
+- ✅ **Log** em `%APPDATA%\anta\anta.log` (app de janela não tem console)
+
+Bugs corrigidos na iteração: instalador em `winget` sem Node (build via CI), devices
+duplicados (WASAPI), badge "mock" falso, layout da revisão, versão, **crash sem-console**
+(travava em "Processando"), **resposta não aparecia no HUD**, **TTS mudo** (voz por nome
+não resolvia). Todos com testes.
+
+### Polimento (próximas sessões)
+- [ ] **Autostart no login** — confirmar após reboot (a opção do instalador grava `HKCU\Run`).
+- [ ] **Assinatura de código** — some com o SmartScreen e evita o Kaspersky re-perguntar a
+  cada build (EV = imediato; OV/Azure Trusted Signing/SignPath = alternativas).
+- [ ] **Linux nativo** (AppImage) — backend Qt do pywebview; validar abertura + áudio.
+- [ ] **macOS** — não suportado hoje (gate de VRAM assume NVIDIA).
+- [ ] **Polimento visual fino** — calibrar tamanhos/animações com as janelas abertas.
+
+---
+
 ## 0. Preparação
 - [ ] `git pull` (a fase está na `main`).
 - [ ] Ollama instalado e no ar (`ollama --version`, `ollama list`).
