@@ -96,7 +96,7 @@ async function salvar() {
   try {
     const r = await configApi.save(store.toConfig())
     resultado.value = r.ok
-      ? { ok: true, msg: `Configuração salva em ${r.path}.${r.warnings?.length ? ' Avisos: ' + r.warnings.join('; ') : ''}` }
+      ? { ok: true, msg: `A ANTA foi configurada.${r.warnings?.length ? ' Avisos: ' + r.warnings.join('; ') : ''}` }
       : { ok: false, msg: r.msg ?? 'Falha ao salvar.' }
     if (r.ok) store.editMode = true
   } finally {

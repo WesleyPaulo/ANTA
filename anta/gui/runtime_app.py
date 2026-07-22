@@ -26,6 +26,9 @@ _TITLE = "ANTA"
 
 
 def main() -> None:
+    from anta.gui.log import redirect_std_to_log
+
+    redirect_std_to_log()  # app de janela: sem isso print/traceback crasham (stdout None)
     if assets.build_missing(_APP):
         idx = assets.dist_index(_APP)
         print(f"[anta] HUD nao buildado (nao achei {idx}).\n"
@@ -108,7 +111,16 @@ def main() -> None:
             if trigger.wait(timeout=0.5):
                 trigger.clear()
                 if not stop.is_set():
-                    session.toggle()
+                    # a worker NUNCA morre: um erro no toggle vira estado de erro e
+                    # volta a 'pronto', em vez de matar a thread (HUD preso p/ sempre).
+                    try:
+                        session.toggle()
+                    except Exception:  # noqa: BLE001
+                        import traceback
+
+                        traceback.print_exc()
+                        sm.transition(State.ERRO, text="erro inesperado (veja o anta.log)")
+                        sm.transition(State.PRONTO)
 
     threading.Thread(target=worker, daemon=True).start()
     icon = start_tray(api, window)

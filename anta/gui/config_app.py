@@ -15,6 +15,9 @@ _TITLE = "ANTA — Configurador"
 
 
 def main() -> None:
+    from anta.gui.log import redirect_std_to_log
+
+    redirect_std_to_log()  # app de janela: sem isso print/traceback crasham (stdout None)
     # Erro com direcao (guia §7) em vez de janela em branco: dist ausente fora do dev.
     if assets.build_missing(_APP):
         idx = assets.dist_index(_APP)

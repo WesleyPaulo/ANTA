@@ -20,6 +20,11 @@ def choose_default() -> str:
 
 
 def main() -> None:
+    # Chokepoint do exe empacotado: sem console, stdout/stderr sao None e todo
+    # print/traceback crasharia (mata a worker do runtime). Redireciona pro anta.log.
+    from anta.gui.log import redirect_std_to_log
+
+    redirect_std_to_log()
     if len(sys.argv) <= 1:
         # sem argv: injeta o subcomando escolhido antes de delegar
         sys.argv.append(choose_default())
