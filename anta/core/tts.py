@@ -86,6 +86,21 @@ def default_voice_path() -> Path:
     return voices_dir() / f"{DEFAULT_VOICE}.onnx"
 
 
+def _resolve_voice(voice_path: str | Path | None) -> Path:
+    """Resolve a voz aceitando CAMINHO completo OU nome do catalogo.
+
+    O Configurador (GUI) salva o NOME (ex.: 'pt_BR-dii-high'); o CLI `anta vozes` e a
+    TUI salvam o CAMINHO do .onnx. Sem isso o runtime so aceitava caminho -> TTS mudo
+    quando configurado pela GUI ('voz nao encontrada em pt_BR-dii-high')."""
+    if not voice_path:
+        return default_voice_path()
+    p = Path(voice_path)
+    if p.exists():
+        return p  # caminho completo (CLI/TUI ou voz importada)
+    nome = p.name if p.name.endswith(".onnx") else f"{p.name}.onnx"
+    return voices_dir() / nome  # nome do catalogo -> voices_dir()/<nome>.onnx
+
+
 def ensure_voice(name: str = DEFAULT_VOICE, dest_dir: Path | None = None) -> Path:
     """Garante <name>.onnx (+ .onnx.json) localmente; baixa do repo OFICIAL se faltarem.
     Retorna o caminho do .onnx. Levanta em falha de rede (o chamador — o instalador —
@@ -169,9 +184,9 @@ def speak(texto: str, voice_path: str | Path | None = None,
     cai, mas a falha nao fica silenciosa)."""
     if not texto:
         return
-    voice = Path(voice_path) if voice_path else default_voice_path()
+    voice = _resolve_voice(voice_path)
     if not voice.exists():
-        _tts_warn(f"voz nao encontrada em {voice}")
+        _tts_warn(f"voz nao encontrada em {voice} (voice_path={voice_path!r})")
         return
     try:
         pcm, sample_rate = _synthesize(texto, voice)

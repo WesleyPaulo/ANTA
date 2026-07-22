@@ -12,6 +12,35 @@ from unittest import mock
 from anta.core import tts
 
 
+class TestResolveVoice(unittest.TestCase):
+    """Regressao Windows: o Configurador salva a voz como NOME; o runtime aceitava
+    so CAMINHO -> 'voz nao encontrada em pt_BR-dii-high'. Agora resolve os dois."""
+
+    def test_none_vira_default(self):
+        self.assertEqual(tts._resolve_voice(None), tts.default_voice_path())
+
+    def test_nome_do_catalogo_vira_caminho(self):
+        with tempfile.TemporaryDirectory() as d:
+            vozes = Path(d)
+            (vozes / "pt_BR-dii-high.onnx").write_bytes(b"x")
+            with mock.patch.object(tts, "voices_dir", return_value=vozes):
+                got = tts._resolve_voice("pt_BR-dii-high")
+            self.assertEqual(got, vozes / "pt_BR-dii-high.onnx")
+
+    def test_caminho_completo_existente_passa_direto(self):
+        with tempfile.TemporaryDirectory() as d:
+            onnx = Path(d) / "minha.onnx"
+            onnx.write_bytes(b"x")
+            self.assertEqual(tts._resolve_voice(str(onnx)), onnx)
+
+    def test_nome_inexistente_ainda_aponta_pro_voices_dir(self):
+        with tempfile.TemporaryDirectory() as d:
+            vozes = Path(d)
+            with mock.patch.object(tts, "voices_dir", return_value=vozes):
+                got = tts._resolve_voice("pt_BR-sumida")
+            self.assertEqual(got, vozes / "pt_BR-sumida.onnx")  # exists()=False -> logado
+
+
 class TestSpeakGuards(unittest.TestCase):
     def test_texto_vazio_noop(self):
         tts.speak("", None)  # nao deve levantar nem tentar sintetizar

@@ -94,7 +94,7 @@ class UserConfig:
     hotkey: str = "ctrl+alt+space"
     obsidian_vault: str | None = None  # caminho do vault; None = ~/anta-notas
     tts: bool = False
-    tts_voice: str | None = None       # caminho do .onnx; None = voz padrao baixada
+    tts_voice: str | None = None       # caminho do .onnx OU nome do catalogo; None = padrao
     tts_output: str | None = None      # NOME do device de saida; None = padrao
     rag: bool = True                   # busca/memoria em notas (RAG na CPU via fastembed)
     web: bool = False                  # OPT-IN: busca na web (rompe o offline!) default off
