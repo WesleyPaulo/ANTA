@@ -71,7 +71,11 @@ function prev() {
 
       <!-- Conteúdo do passo -->
       <template v-else>
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
 
         <!-- Navegação (o passo "Instalar" tem o botão de salvar próprio) -->
         <div v-if="!isLast" class="mt-6 flex items-center justify-between">
@@ -82,3 +86,25 @@ function prev() {
     </main>
   </div>
 </template>
+
+<style scoped>
+/* transicao suave entre passos do wizard */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
+}
+</style>

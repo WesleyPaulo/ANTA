@@ -24,22 +24,25 @@ const podeDescarregar = computed(
 )
 const emBrowser = !hasPywebview()
 
+// cor + halo (ring) por estado — classes completas p/ o purge do Tailwind ver
 const orbClass = computed(() => {
   switch (store.state) {
-    case 'ouvindo': return 'bg-red-500'
-    case 'respondendo': return 'bg-brand-500 animate-pulse'
-    case 'carregando': return 'bg-brand-400 animate-pulse'
-    case 'processando': return 'bg-brand-500'
-    case 'pronto': return 'bg-brand-700'
-    case 'descarregado': return 'bg-slate-400 dark:bg-slate-600'
-    case 'erro': return 'bg-red-500'
-    default: return 'bg-brand-700'
+    case 'ouvindo': return 'bg-red-500 ring-4 ring-red-400/50'
+    case 'respondendo': return 'bg-brand-500 ring-4 ring-brand-400/40 animate-pulse'
+    case 'carregando': return 'bg-brand-400 ring-4 ring-brand-300/40 animate-pulse'
+    case 'processando': return 'bg-brand-500 ring-4 ring-brand-300/40'
+    case 'pronto': return 'bg-brand-700 ring-4 ring-brand-500/30'
+    case 'descarregado': return 'bg-slate-400 ring-4 ring-slate-300/30 dark:bg-slate-600'
+    case 'erro': return 'bg-red-500 ring-4 ring-red-400/40'
+    default: return 'bg-brand-700 ring-4 ring-brand-500/30'
   }
 })
+// "respira" so quando ocioso (pronto), pra nao parecer travado
+const orbBreathe = computed(() => (store.state === 'pronto' ? 'orb-breathe' : ''))
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+  <div class="flex min-h-screen flex-col bg-gradient-to-b from-white to-slate-50 text-slate-800 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
     <!-- Barra de topo (arrastar/estado) -->
     <header class="flex items-center justify-between px-4 py-2">
       <div class="flex items-center gap-2">
@@ -64,7 +67,10 @@ const orbClass = computed(() => {
           v-if="store.state === 'processando'"
           class="absolute h-full w-full animate-spin rounded-full border-4 border-brand-300 border-t-transparent"
         />
-        <span class="relative inline-flex h-20 w-20 rounded-full shadow-lg" :class="orbClass" />
+        <span
+          class="relative inline-flex h-20 w-20 rounded-full shadow-lg transition-all duration-500 ease-out"
+          :class="[orbClass, orbBreathe]"
+        />
       </div>
 
       <div>
@@ -119,3 +125,17 @@ const orbClass = computed(() => {
     </footer>
   </div>
 </template>
+
+<style scoped>
+/* "respira" quando ocioso (pronto): escala suave, sem parecer travado */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+.orb-breathe {
+  animation: orb-breathe 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-breathe { animation: none; }
+}
+</style>
