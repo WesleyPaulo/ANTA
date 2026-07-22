@@ -8,7 +8,7 @@
 
 [Setup]
 AppName={#MyAppName}
-AppVersion=0.3.0
+AppVersion=0.4.0
 DefaultDirName={autopf}\ANTA
 DefaultGroupName=ANTA
 DisableProgramGroupPage=yes
