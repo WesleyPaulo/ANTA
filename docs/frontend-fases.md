@@ -37,7 +37,7 @@ mesmo processo Python (sem sidecar/IPC). Ponte = `window.pywebview.api` → Prom
 |--------------|-----------|-----------|
 | Detecção entrega GPU/RAM/VRAM/disco | Só GPU/VRAM (`installer/hardware.py`) | `anta/gui/detection.py` (RAM via psutil, disco via stdlib) — M0 |
 | Config tem versão + flag "configurado" | Não tinha | `schema_version` + `configured` em `UserConfig` (retrocompat) — M0 |
-| PyInstaller "só empacotar" | `default_modes_path()`/`default_command()` quebram frozen | modes path já resolve sob `sys._MEIPASS` (M0); `default_command` fica p/ M5 |
+| PyInstaller "só empacotar" | `default_modes_path()`/`default_command()` quebram frozen | modes path resolve sob `sys._MEIPASS` (M0); `default_command` frozen (M5) |
 | Máquina de estados no backend | Só `Session` (bool) + strings livres | `anta/core/states.py` + `anta/gui/state.py` — M3 |
 | "Descarregar modelo" | Não existe unload em lugar nenhum | `Brain.unload()`/`Pipeline.unload()` — M3; botão no HUD — M4 |
 | Downloads com checksum/retomada | `ollama pull` idempotente; cache HF cobre STT/embed | só a voz Piper baixa cru — M2 usa o que já existe |
@@ -94,10 +94,22 @@ De-risca a costura PyWebview ↔ Vue ↔ dev/build ↔ chamada-Python ↔ `file:
 - **Done:** `anta run` (headless) segue intacto; `anta app` sobe o HUD; 321 testes Python
   (10 novos de `RuntimeApi`) + 9 Vitest + build das duas apps.
 
-### M5 — Empacotamento · pendente
-`anta.spec` (PyInstaller: dois `dist/` + `modes.yaml` + hiddenimports), `launcher.py` (roteia
-por `configured`), `default_command()` frozen, instaladores (Inno/NSIS, AppImage), autostart
-reusando `anta/platform/hotkey.py`.
+### M5 — Empacotamento · ✅ feito (2026-07-21)
+- `anta/gui/launcher.py` + `packaging/entry.py`: o exe empacotado é **um só** — com argv age
+  como CLI (`config`/`app`/`run`/`toggle`), sem argv roteia por `configured` (1ª vez →
+  Configurador; já configurado → HUD). Nunca a TUI (a GUI é o padrão no build).
+- `hotkey.default_command()` ganhou o branch **frozen** (usa o exe, sem `-m anta`) — o
+  autostart depende disso.
+- `packaging/anta.spec`: empacota os dois `dist/` do Vite (`web/configurador`/`web/runtime`) +
+  `modes.yaml`/`config.example.toml`; `hiddenimports` p/ os lazy (faster_whisper/fastembed/
+  piper/sounddevice/pynput/pystray/webview/instructor/openai/...). Resolve tudo via `_MEIPASS`.
+- Instaladores: `packaging/windows/anta.iss` (Inno: Program Files + atalhos + autostart HKCU +
+  "run after install"), `packaging/linux/` (AppRun + `.desktop` p/ AppImage). Build por SO:
+  `packaging/build.sh [--appimage]` / `packaging/build.ps1 [-Inno]`. Ver `packaging/README.md`.
+- **Done (na máquina de build):** `pip install -r requirements.txt` + `npm run build` +
+  `pyinstaller packaging/anta.spec` → `dist/anta/anta`; roteia por `configured`; autostart sobe
+  o HUD. **O build em si roda em Windows/Linux nativo** (a dev box WSL2 não tem as deps nativas
+  instaladas). 326 testes Python verdes (launcher + `default_command` frozen).
 
 ## Mudanças por commit (branch `feat/frontend-fundacao`)
 
@@ -110,6 +122,7 @@ reusando `anta/platform/hotkey.py`.
 - `feat(configurador):` wizard completo + paleta preto/branco/azul-escuro.
 - `feat:` runtime backend — máquina de estados + unload de modelo (M3).
 - `feat:` App de execução — RuntimeApi + HUD na bandeja (`anta app`) (M4).
+- `feat:` empacotamento — PyInstaller + launcher + instaladores (M5).
 
 ## Como rodar e validar
 
