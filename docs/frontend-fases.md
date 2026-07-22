@@ -38,8 +38,8 @@ mesmo processo Python (sem sidecar/IPC). Ponte = `window.pywebview.api` → Prom
 | Detecção entrega GPU/RAM/VRAM/disco | Só GPU/VRAM (`installer/hardware.py`) | `anta/gui/detection.py` (RAM via psutil, disco via stdlib) — M0 |
 | Config tem versão + flag "configurado" | Não tinha | `schema_version` + `configured` em `UserConfig` (retrocompat) — M0 |
 | PyInstaller "só empacotar" | `default_modes_path()`/`default_command()` quebram frozen | modes path já resolve sob `sys._MEIPASS` (M0); `default_command` fica p/ M5 |
-| Máquina de estados no backend | Só `Session` (bool) + strings livres | `anta/gui/state.py` — M3 |
-| "Descarregar modelo" | Não existe unload em lugar nenhum | `Brain.unload()`/`Pipeline.unload()` — M3 |
+| Máquina de estados no backend | Só `Session` (bool) + strings livres | `anta/core/states.py` + `anta/gui/state.py` — M3 |
+| "Descarregar modelo" | Não existe unload em lugar nenhum | `Brain.unload()`/`Pipeline.unload()` — M3; botão no HUD — M4 |
 | Downloads com checksum/retomada | `ollama pull` idempotente; cache HF cobre STT/embed | só a voz Piper baixa cru — M2 usa o que já existe |
 
 ## Fases (roadmap + status)
@@ -78,10 +78,21 @@ De-risca a costura PyWebview ↔ Vue ↔ dev/build ↔ chamada-Python ↔ `file:
   respondendo→pronto; silêncio→erro code=mic); `unload` faz o POST e solta os modelos.
   311 testes Python verdes (26 novos: `test_states` + unload/estados em brain/pipeline/main).
 
-### M4 — HUD + bandeja · pendente
-`apps/runtime` (store de estado alimentada por `window.__antaOnState` + `get_state`),
-animação por estado, botão descarregar; `anta/gui/runtime_app.py` (worker thread + `pystray`),
-comando `anta app`. Fluxo "não ouviu → verificar microfone" abre o Configurador.
+### M4 — HUD + bandeja · ✅ feito (2026-07-21)
+- Backend: `anta/gui/bridge_runtime.py` (`RuntimeApi` — só-leitura: `get_state`, `toggle`,
+  `load_model`/`unload_model`, `get_config`, `list_*`, `open_configurador`, `hide`/`show`);
+  `anta/gui/runtime_app.py` (bootstrap: PyWebview na thread principal + **worker thread** com
+  o loop push-to-talk emitindo estados; pidfile + SIGUSR1 + pynput convergindo no mesmo
+  `Event`); `anta/gui/tray.py` (`pystray`, best-effort); dispatch `anta app`.
+- Frontend: `apps/runtime` (HUD de uma tela; store assina `window.__antaOnState` + `get_state`
+  no mount; **orb animado por estado** — ping em ouvindo, spin em processando, pulse em
+  carregando/respondendo; botões Falar/Parar e Descarregar modelo; "não ouviu → verificar
+  microfone" abre o Configurador). Ponte: facade `runtimeApi` + `onState` + mock que simula
+  as transições no browser.
+- Três fontes de gatilho (pynput / `anta toggle` via SIGUSR1 / botão do HUD) convergem no
+  mesmo `Event`; o TTS bloqueia no worker, então a GUI nunca trava.
+- **Done:** `anta run` (headless) segue intacto; `anta app` sobe o HUD; 321 testes Python
+  (10 novos de `RuntimeApi`) + 9 Vitest + build das duas apps.
 
 ### M5 — Empacotamento · pendente
 `anta.spec` (PyInstaller: dois `dist/` + `modes.yaml` + hiddenimports), `launcher.py` (roteia
@@ -98,6 +109,7 @@ reusando `anta/platform/hotkey.py`.
 - `feat(bridge):` superfície completa do Configurador na ponte.
 - `feat(configurador):` wizard completo + paleta preto/branco/azul-escuro.
 - `feat:` runtime backend — máquina de estados + unload de modelo (M3).
+- `feat:` App de execução — RuntimeApi + HUD na bandeja (`anta app`) (M4).
 
 ## Como rodar e validar
 
@@ -127,12 +139,16 @@ anta/core/states.py           # contrato de estados (enum State + emit) — sem 
 anta/gui/                     # backend das apps (PyWebview)
   assets.py                   # resolve a raiz web (dev/build/frozen)
   bridge_config.py            # ConfigApi (a ponte do Configurador; único writer)
+  bridge_runtime.py           # RuntimeApi (a ponte do App de execução; só-leitura)
   config_app.py               # bootstrap da janela (anta config)
+  runtime_app.py              # bootstrap do HUD (anta app; worker thread + bandeja)
+  tray.py                     # ícone de bandeja (pystray, best-effort)
   detection.py                # RAM/disco (complementa installer/hardware.py)
   downloads.py                # verificação idempotente + download dos componentes
-  state.py                    # StateMachine + emitter (App de execução, M3+)
+  state.py                    # StateMachine + emitter (App de execução)
 frontend/
-  packages/bridge/            # @anta/bridge — callApi + mock + facade tipada
+  packages/bridge/            # @anta/bridge — callApi + mock + facades (config/runtime)
   packages/ui/                # @anta/ui — componentes + tailwind-preset (paleta)
   apps/configurador/          # @anta/configurador — wizard (store + router + views)
+  apps/runtime/               # @anta/runtime — HUD por estado (store + App.vue)
 ```
