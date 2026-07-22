@@ -35,9 +35,13 @@ fastembed>=0.3
 # via `ddgs` (SearXNG usa so a stdlib). Importado sob demanda.
 ddgs>=6.0
 
-# GUI desktop (`anta config`): janela nativa carregando o front Vue (dist/ do Vite).
+# GUI desktop (`anta config` / `anta app`): janela nativa carregando o front Vue.
 # Um processo Python so, sem sidecar. Importado sob demanda (so ao abrir a GUI).
 pywebview>=5.0
+# Bandeja do App de execucao (`anta app`): icone + menu. Best-effort — sem tray no
+# ambiente (ex.: Wayland puro), o app segue so com a janela. pystray usa Pillow.
+pystray>=0.19
+Pillow>=10.0
 # Deteccao de RAM para o Configurador (o disco usa a stdlib). Import preguicoso,
 # com fallback stdlib se ausente (anta/gui/detection.py).
 psutil>=5.9
