@@ -9,8 +9,11 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @anta/configurador",
-    "build": "npm run build -w @anta/configurador",
-    "preview": "npm run preview -w @anta/configurador",
+    "dev:config": "npm run dev -w @anta/configurador",
+    "dev:runtime": "npm run dev -w @anta/runtime",
+    "build": "npm run build -w @anta/configurador && npm run build -w @anta/runtime",
+    "build:config": "npm run build -w @anta/configurador",
+    "build:runtime": "npm run build -w @anta/runtime",
     "test": "npm run test -w @anta/bridge"
   }
 }
