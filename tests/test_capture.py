@@ -71,6 +71,19 @@ class TestListDevices(unittest.TestCase):
             nomes = [d["name"] for d in capture.list_output_devices()]
         self.assertEqual(nomes, ["Alto-falantes", "Fone BT"])  # so saida > 0
 
+    def test_deduplica_por_nome(self):
+        # regressao Windows: o PortAudio repete cada device por host API (MME/
+        # DirectSound/WASAPI/WDM-KS). O dedup por nome (case-insensitive) tira as copias.
+        devs = [
+            {"name": "Mic X", "max_input_channels": 2},
+            {"name": "Mic X", "max_input_channels": 2},   # duplicata (outro host API)
+            {"name": "mic x", "max_input_channels": 1},   # mesmo nome, outro case
+            {"name": "Mic Y", "max_input_channels": 1},
+        ]
+        with _fake_sd(devs):
+            nomes = [d["name"] for d in capture.list_input_devices()]
+        self.assertEqual(nomes, ["Mic X", "Mic Y"])  # uma vez cada
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,6 +28,13 @@ export function hasPywebview(): boolean {
   return currentApi() !== null
 }
 
+// Versao ASSINCRONA: aguarda o pywebview injetar a api (evento 'pywebviewready')
+// antes de decidir. Use esta no boot da UI — o hasPywebview() sincrono da falso
+// no setup do componente (a api chega DEPOIS), rotulando o app como "mock" a toa.
+export async function isPywebview(): Promise<boolean> {
+  return (await waitForApi()) !== null
+}
+
 function waitForApi(): Promise<PywebviewApi | null> {
   const existing = currentApi()
   if (existing) return Promise.resolve(existing)

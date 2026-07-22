@@ -37,6 +37,14 @@ async function instalarOllama() {
 
 onMounted(checarOllama)
 
+// A voz pode vir como caminho completo (config antiga) — mostra so o nome do arquivo.
+const vozLabel = computed(() => {
+  if (!store.form.tts) return 'desligado'
+  const v = store.form.tts_voice
+  if (!v) return 'padrão'
+  return (v.split(/[\\/]/).pop() ?? v).replace(/\.onnx$/i, '')
+})
+
 type Comp = { kind: ComponentKind; title: string; tag: string; subtitle: string }
 
 const componentes = computed<Comp[]>(() => {
@@ -102,12 +110,12 @@ async function salvar() {
     <!-- Revisão -->
     <Card title="Revisão" subtitle="Confira antes de instalar.">
       <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-        <div><dt class="text-xs uppercase tracking-wide text-slate-400">Família</dt><dd class="font-medium">{{ store.family()?.label }}</dd></div>
-        <div><dt class="text-xs uppercase tracking-wide text-slate-400">Modo</dt><dd class="font-medium">{{ store.mode()?.label }}</dd></div>
-        <div><dt class="text-xs uppercase tracking-wide text-slate-400">Microfone</dt><dd class="font-medium">{{ store.form.mic_device ?? 'padrão' }}</dd></div>
-        <div><dt class="text-xs uppercase tracking-wide text-slate-400">Voz (TTS)</dt><dd class="font-medium">{{ store.form.tts ? (store.form.tts_voice ?? 'padrão') : 'desligado' }}</dd></div>
-        <div><dt class="text-xs uppercase tracking-wide text-slate-400">Atalho</dt><dd class="font-medium"><code class="text-xs">{{ store.form.hotkey }}</code></dd></div>
-        <div><dt class="text-xs uppercase tracking-wide text-slate-400">RAG / Web</dt><dd class="font-medium">{{ store.form.rag ? 'RAG on' : 'RAG off' }} · {{ store.form.web ? 'web on' : 'web off' }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-slate-400">Família</dt><dd class="truncate font-medium">{{ store.family()?.label }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-slate-400">Modo</dt><dd class="truncate font-medium">{{ store.mode()?.label }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-slate-400">Microfone</dt><dd class="truncate font-medium" :title="store.form.mic_device ?? ''">{{ store.form.mic_device ?? 'padrão' }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-slate-400">Voz (TTS)</dt><dd class="truncate font-medium" :title="store.form.tts_voice ?? ''">{{ vozLabel }}</dd></div>
+        <div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-slate-400">Atalho</dt><dd class="truncate font-medium"><code class="text-xs">{{ store.form.hotkey }}</code></dd></div>
+        <div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-slate-400">RAG / Web</dt><dd class="truncate font-medium">{{ store.form.rag ? 'RAG on' : 'RAG off' }} · {{ store.form.web ? 'web on' : 'web off' }}</dd></div>
       </dl>
     </Card>
 

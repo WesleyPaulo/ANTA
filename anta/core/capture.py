@@ -6,6 +6,7 @@ risco de feedback loop (gravar o proprio TTS).
 """
 from __future__ import annotations
 
+import os
 import threading
 
 import numpy as np
@@ -34,39 +35,64 @@ def audio_level(audio) -> tuple[float, float]:
     return float(np.abs(audio).max()), float(np.sqrt(np.mean(np.square(audio))))
 
 
-def _input_devices():
-    """(indice_global, device) apenas dos devices de ENTRADA (microfones)."""
+def _preferred_hostapi() -> int | None:
+    """No Windows, prefere o host API WASAPI; fora dele, None (sem filtro).
+
+    O PortAudio lista CADA device uma vez POR host API (MME, DirectSound, WASAPI,
+    WDM-KS): o mesmo microfone aparece 3-4x, e o MME ainda TRUNCA o nome em 31 chars
+    ('...WCI108' vs '...WCI1080P'). Filtrar pelo WASAPI da uma lista limpa (nomes
+    completos, cada device uma vez)."""
+    if os.name != "nt":
+        return None
+    try:
+        import sounddevice as sd
+
+        for i, ha in enumerate(sd.query_hostapis()):
+            if "WASAPI" in ha.get("name", ""):
+                return i
+    except Exception:  # noqa: BLE001 - sem WASAPI/host apis -> cai no fallback
+        pass
+    return None
+
+
+def _list_devices(channels_key: str) -> list[dict]:
+    """Devices com `channels_key > 0`, DEDUPLICADOS por nome. No Windows prefere o
+    WASAPI (ver _preferred_hostapi); fora dele, deduplica por nome (Linux/mac raramente
+    repetem, mas o dedup e inofensivo)."""
     import sounddevice as sd
 
-    for idx, d in enumerate(sd.query_devices()):
-        if d.get("max_input_channels", 0) > 0:
-            yield idx, d
+    devices = list(sd.query_devices())
+    prefer = _preferred_hostapi()
+    seen: set[str] = set()
+    out: list[dict] = []
+
+    def collect(items) -> None:
+        for d in items:
+            if d.get(channels_key, 0) <= 0:
+                continue
+            key = d["name"].strip().lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(dict(d))
+
+    if prefer is not None:
+        collect(d for d in devices if d.get("hostapi") == prefer)
+    if not out:  # fora do Windows, ou WASAPI vazio: todos, deduplicados por nome
+        collect(devices)
+    return out
 
 
 def list_input_devices() -> list[dict]:
-    """Retorna os microfones disponiveis para o usuario escolher no instalador.
-
-    Guardar o NOME do device escolhido na config (nao o indice/default),
-    para nao quebrar quando um headset USB mudar o default no meio do dia.
-    """
-    return [dict(d) for _, d in _input_devices()]
-
-
-def _output_devices():
-    """(indice_global, device) apenas dos devices de SAIDA (alto-falantes)."""
-    import sounddevice as sd
-
-    for idx, d in enumerate(sd.query_devices()):
-        if d.get("max_output_channels", 0) > 0:
-            yield idx, d
+    """Microfones para o usuario escolher (deduplicados). Guardar o NOME na config
+    (nao o indice/default), para nao quebrar quando um headset USB mudar o default."""
+    return _list_devices("max_input_channels")
 
 
 def list_output_devices() -> list[dict]:
-    """Devices de SAIDA para escolher a saida do TTS no Configurador.
-
-    Espelha list_input_devices (mesmo motivo: guardar o NOME, nao o indice).
-    A resolucao nome->indice na hora de falar ja existe em tts._resolve_output."""
-    return [dict(d) for _, d in _output_devices()]
+    """Devices de SAIDA (deduplicados) para a saida do TTS. Mesmo motivo do de entrada:
+    guardar o NOME. A resolucao nome->indice ja existe em tts._resolve_output."""
+    return _list_devices("max_output_channels")
 
 
 def _resolve_device(device_name: str | None) -> int | None:

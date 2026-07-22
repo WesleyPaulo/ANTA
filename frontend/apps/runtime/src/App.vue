@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { hasPywebview, type RuntimeState } from '@anta/bridge'
+import { computed, onMounted, ref } from 'vue'
+import { isPywebview, type RuntimeState } from '@anta/bridge'
 import { Button } from '@anta/ui'
 import { store } from './store'
 
-onMounted(() => store.init())
+const emBrowser = ref(false) // so vira true se o pywebview realmente nao aparecer
+onMounted(async () => {
+  store.init()
+  emBrowser.value = !(await isPywebview())
+})
 
 const META: Record<RuntimeState, { label: string; hint: string }> = {
   carregando: { label: 'Carregando modelo', hint: 'Um instante…' },
@@ -22,7 +26,6 @@ const isOff = computed(() => store.state === 'descarregado')
 const podeDescarregar = computed(
   () => !['descarregado', 'carregando'].includes(store.state) && !store.busy,
 )
-const emBrowser = !hasPywebview()
 
 // cor + halo (ring) por estado — classes completas p/ o purge do Tailwind ver
 const orbClass = computed(() => {

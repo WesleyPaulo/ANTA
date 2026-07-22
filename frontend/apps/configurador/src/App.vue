@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { hasPywebview } from '@anta/bridge'
+import { isPywebview } from '@anta/bridge'
 import { Button, Stepper } from '@anta/ui'
 import { STEPS } from './router'
 import { store } from './store'
@@ -13,9 +13,12 @@ const currentIndex = computed(() =>
   Math.max(0, STEPS.findIndex((s) => s.path === route.path)),
 )
 const isLast = computed(() => currentIndex.value === STEPS.length - 1)
-const emBrowser = !hasPywebview()
+const emBrowser = ref(false) // so vira true se o pywebview realmente nao aparecer
 
-onMounted(() => store.init())
+onMounted(async () => {
+  store.init()
+  emBrowser.value = !(await isPywebview())
+})
 
 function go(i: number) {
   router.push(STEPS[i].path)
