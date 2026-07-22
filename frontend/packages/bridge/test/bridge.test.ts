@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { callApi, configApi, hasPywebview, setReadyTimeoutMs } from '../src'
+import { callApi, configApi, hasPywebview, onState, runtimeApi, setReadyTimeoutMs } from '../src'
 
 type Win = typeof window & { pywebview?: { api?: Record<string, unknown> } }
 
@@ -61,5 +61,25 @@ describe('hasPywebview', () => {
     expect(hasPywebview()).toBe(false)
     ;(window as Win).pywebview = { api: {} }
     expect(hasPywebview()).toBe(true)
+  })
+})
+
+describe('runtimeApi + onState', () => {
+  it('getState mapeia para get_state', async () => {
+    const spy = vi.fn().mockResolvedValue({ state: 'pronto' })
+    ;(window as Win).pywebview = { api: { get_state: spy } }
+    const r = await runtimeApi.getState()
+    expect(spy).toHaveBeenCalled()
+    expect(r.state).toBe('pronto')
+  })
+
+  it('onState registra window.__antaOnState e o unsubscribe remove', () => {
+    const w = window as unknown as { __antaOnState?: (e: unknown) => void }
+    const cb = vi.fn()
+    const off = onState(cb as never)
+    w.__antaOnState?.({ state: 'ouvindo' })
+    expect(cb).toHaveBeenCalledWith({ state: 'ouvindo' })
+    off()
+    expect(w.__antaOnState).toBeUndefined()
   })
 })

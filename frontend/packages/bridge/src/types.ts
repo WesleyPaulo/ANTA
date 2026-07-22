@@ -121,6 +121,36 @@ export interface SaveResult {
   msg?: string
 }
 
+// --- App de execucao (runtime HUD) ---
+export type RuntimeState =
+  | 'carregando' | 'pronto' | 'ouvindo' | 'processando'
+  | 'respondendo' | 'descarregado' | 'erro'
+
+// Empurrado pelo Python via window.__antaOnState a cada transicao.
+export interface StateEvent {
+  state: RuntimeState
+  code?: string // ex.: "mic" (nao ouviu) | "model" (modelo nao instalado)
+  text?: string
+}
+
+export interface ModelResult {
+  ok: boolean
+  msg: string
+}
+
+export interface RuntimeApiFacade {
+  getState(): Promise<{ state: RuntimeState }>
+  toggle(): Promise<void>
+  loadModel(): Promise<ModelResult>
+  unloadModel(): Promise<ModelResult>
+  getConfig(): Promise<UserConfig>
+  listMicrophones(): Promise<DeviceInfo[]>
+  listSpeakers(): Promise<DeviceInfo[]>
+  openConfigurador(): Promise<{ ok: boolean; msg?: string }>
+  hide(): Promise<void>
+  show(): Promise<void>
+}
+
 // Facade tipada. Os nomes camelCase mapeiam para os metodos snake_case do Python.
 export interface ConfigApiFacade {
   ping(): Promise<string>

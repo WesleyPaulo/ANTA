@@ -6,7 +6,7 @@
 // assim a UI se desenvolve sem subir o Python.
 
 import { callMock } from './mock'
-import type { ConfigApiFacade } from './types'
+import type { ConfigApiFacade, RuntimeApiFacade, StateEvent } from './types'
 
 type PywebviewApi = Record<string, (...args: unknown[]) => Promise<unknown>>
 
@@ -76,6 +76,29 @@ export const configApi: ConfigApiFacade = {
   testModelLoad: (family, mode) => callApi('test_model_load', family, mode),
   validateHotkey: (hotkey) => callApi('validate_hotkey', hotkey),
   save: (cfg) => callApi('save', cfg),
+}
+
+// App de execucao: facade + assinatura de estados (window.__antaOnState).
+export const runtimeApi: RuntimeApiFacade = {
+  getState: () => callApi('get_state'),
+  toggle: () => callApi('toggle'),
+  loadModel: () => callApi('load_model'),
+  unloadModel: () => callApi('unload_model'),
+  getConfig: () => callApi('get_config'),
+  listMicrophones: () => callApi('list_microphones'),
+  listSpeakers: () => callApi('list_speakers'),
+  openConfigurador: () => callApi('open_configurador'),
+  hide: () => callApi('hide'),
+  show: () => callApi('show'),
+}
+
+// Assina os eventos de estado que o Python empurra. Devolve um unsubscribe.
+export function onState(cb: (ev: StateEvent) => void): () => void {
+  const w = window as unknown as { __antaOnState?: (ev: StateEvent) => void }
+  w.__antaOnState = cb
+  return () => {
+    if (w.__antaOnState === cb) delete w.__antaOnState
+  }
 }
 
 export * from './types'

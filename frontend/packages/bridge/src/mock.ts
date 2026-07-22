@@ -2,7 +2,8 @@
 // Dados de exemplo, com forma identica ao que o Python devolve.
 
 import type {
-  Catalog, DeviceInfo, EnvInfo, Hardware, SaveResult, UserConfig, VoiceCatalog,
+  Catalog, DeviceInfo, EnvInfo, Hardware, RuntimeState, SaveResult, StateEvent,
+  UserConfig, VoiceCatalog,
 } from './types'
 
 const MOCK_HARDWARE: Hardware = {
@@ -90,6 +91,23 @@ function emitProgress(kind: string, key: string) {
   }, 120)
 }
 
+// --- runtime (HUD): estado simulado + eventos via window.__antaOnState ---
+let mockState: RuntimeState = 'pronto'
+
+function pushState(state: RuntimeState, extra?: Partial<StateEvent>) {
+  mockState = state
+  const w = window as unknown as { __antaOnState?: (ev: StateEvent) => void }
+  w.__antaOnState?.({ state, ...extra })
+}
+
+function simulateToggle() {
+  if (mockState === 'ouvindo') return // ja ouvindo: ignora
+  pushState('ouvindo')
+  setTimeout(() => pushState('processando'), 900)
+  setTimeout(() => pushState('respondendo', { text: 'responder' }), 1600)
+  setTimeout(() => pushState('pronto'), 2600)
+}
+
 export async function callMock<T = unknown>(name: string, ...args: unknown[]): Promise<T> {
   switch (name) {
     case 'ping':
@@ -132,6 +150,23 @@ export async function callMock<T = unknown>(name: string, ...args: unknown[]): P
     }
     case 'save':
       return { ok: true, path: '(mock)/config.toml', warnings: [] } as SaveResult as T
+    case 'get_state':
+      return { state: mockState } as T
+    case 'toggle':
+      simulateToggle()
+      return undefined as T
+    case 'load_model':
+      pushState('carregando')
+      setTimeout(() => pushState('pronto'), 900)
+      return { ok: true, msg: '' } as T
+    case 'unload_model':
+      pushState('descarregado')
+      return { ok: true, msg: '' } as T
+    case 'open_configurador':
+      return { ok: true } as T
+    case 'hide':
+    case 'show':
+      return undefined as T
     default:
       throw new Error(`[bridge mock] metodo desconhecido: ${name}`)
   }
