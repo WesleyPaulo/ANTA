@@ -165,6 +165,22 @@ class ConfigApi:
 
         return downloads.download(kind, key, on_progress=self._push_progress)
 
+    # --- Ollama (o motor do LLM; unica dep externa que nao vai no bundle) ---
+    def ollama_status(self) -> dict:
+        """{installed, running}: o servidor precisa estar NO AR p/ baixar/rodar o LLM."""
+        from anta.gui import downloads
+
+        return {
+            "installed": downloads.ollama_installed(),
+            "running": downloads.ollama_running(),
+        }
+
+    def install_ollama(self) -> dict:
+        """Instala o Ollama (winget no Windows; comando manual no Linux/mac). Best-effort."""
+        from anta.gui import downloads
+
+        return downloads.install_ollama(on_progress=self._push_progress)
+
     def _push_progress(self, payload: dict) -> None:
         """Empurra um evento de progresso pro JS (window.__antaProgress). Best-effort."""
         win = self._window

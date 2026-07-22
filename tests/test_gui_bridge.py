@@ -175,6 +175,22 @@ class TestDownloadProgress(unittest.TestCase):
         self.assertEqual(dl.call_args[0], ("stt", "turbo"))
 
 
+class TestOllama(unittest.TestCase):
+    def test_status_agrega_installed_e_running(self):
+        with mock.patch("anta.gui.downloads.ollama_installed", return_value=True), \
+             mock.patch("anta.gui.downloads.ollama_running", return_value=False):
+            st = ConfigApi().ollama_status()
+        self.assertTrue(st["installed"])
+        self.assertFalse(st["running"])
+
+    def test_install_delega_para_downloads(self):
+        with mock.patch("anta.gui.downloads.install_ollama",
+                        return_value={"ok": True}) as inst:
+            r = ConfigApi().install_ollama()
+        self.assertTrue(r["ok"])
+        inst.assert_called_once()
+
+
 class TestSave(unittest.TestCase):
     def test_grava_configured_true_e_roda_side_effects(self):
         with tempfile.TemporaryDirectory() as d:

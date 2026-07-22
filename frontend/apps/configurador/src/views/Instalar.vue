@@ -1,12 +1,41 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { configApi, type ComponentKind } from '@anta/bridge'
+import { computed, onMounted, ref } from 'vue'
+import { configApi, type ComponentKind, type OllamaStatus } from '@anta/bridge'
 import { Button, Card, DownloadableItem } from '@anta/ui'
 import { store } from '../store'
 
 const salvando = ref(false)
 const baixandoTudo = ref(false)
 const resultado = ref<{ ok: boolean; msg: string } | null>(null)
+
+// Ollama: o motor do LLM (unica dep externa que nao vai no bundle)
+const ollama = ref<OllamaStatus | null>(null)
+const ollamaChecando = ref(true)
+const ollamaInstalando = ref(false)
+const ollamaManual = ref<string | null>(null)
+
+async function checarOllama() {
+  ollamaChecando.value = true
+  try {
+    ollama.value = await configApi.ollamaStatus()
+  } finally {
+    ollamaChecando.value = false
+  }
+}
+
+async function instalarOllama() {
+  ollamaInstalando.value = true
+  ollamaManual.value = null
+  try {
+    const r = await configApi.installOllama()
+    if (r.manual) ollamaManual.value = r.manual
+    await checarOllama()
+  } finally {
+    ollamaInstalando.value = false
+  }
+}
+
+onMounted(checarOllama)
 
 type Comp = { kind: ComponentKind; title: string; tag: string; subtitle: string }
 
@@ -81,6 +110,33 @@ async function salvar() {
         <div><dt class="text-xs uppercase tracking-wide text-slate-400">RAG / Web</dt><dd class="font-medium">{{ store.form.rag ? 'RAG on' : 'RAG off' }} · {{ store.form.web ? 'web on' : 'web off' }}</dd></div>
       </dl>
     </Card>
+
+    <!-- Ollama (motor do LLM) -->
+    <div v-if="ollamaChecando" class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+      Verificando o Ollama…
+    </div>
+    <div
+      v-else-if="ollama && (!ollama.installed || !ollama.running)"
+      class="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30"
+    >
+      <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
+        {{ ollama.installed ? 'Ollama instalado, mas não está no ar' : 'Ollama não encontrado' }}
+      </p>
+      <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
+        O Ollama é o motor que roda o modelo de linguagem (a única peça que não vem no pacote).
+        {{ ollama.installed ? 'Inicie o Ollama e verifique de novo.' : '' }}
+      </p>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <Button v-if="!ollama.installed" :disabled="ollamaInstalando" @click="instalarOllama">
+          {{ ollamaInstalando ? 'Instalando…' : 'Instalar Ollama' }}
+        </Button>
+        <Button variant="secondary" @click="checarOllama">Verificar de novo</Button>
+      </div>
+      <p v-if="ollamaManual" class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+        Rode no terminal: <code class="rounded bg-amber-100 px-1 dark:bg-amber-900/50">{{ ollamaManual }}</code>
+      </p>
+    </div>
+    <p v-else-if="ollama" class="text-sm font-medium text-green-600 dark:text-green-400">✓ Ollama pronto</p>
 
     <!-- Componentes -->
     <Card title="Componentes" subtitle="Baixe o que falta. Re-baixar é seguro (idempotente).">

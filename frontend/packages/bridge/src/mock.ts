@@ -148,6 +148,10 @@ export async function callMock<T = unknown>(name: string, ...args: unknown[]): P
       const valid = hk.includes('+') && !hk.endsWith('+')
       return { valid, normalized: valid ? hk.toLowerCase() : '', msg: valid ? '' : 'Atalho invalido.' } as T
     }
+    case 'ollama_status':
+      return { installed: true, running: true } as T
+    case 'install_ollama':
+      return { ok: true } as T
     case 'save':
       return { ok: true, path: '(mock)/config.toml', warnings: [] } as SaveResult as T
     case 'get_state':

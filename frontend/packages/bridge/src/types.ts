@@ -121,6 +121,17 @@ export interface SaveResult {
   msg?: string
 }
 
+export interface OllamaStatus {
+  installed: boolean
+  running: boolean
+}
+
+export interface OllamaInstallResult {
+  ok: boolean
+  msg?: string
+  manual?: string // comando p/ o usuario rodar (Linux/mac, onde precisa de sudo)
+}
+
 // --- App de execucao (runtime HUD) ---
 export type RuntimeState =
   | 'carregando' | 'pronto' | 'ouvindo' | 'processando'
@@ -168,5 +179,7 @@ export interface ConfigApiFacade {
   testTts(voice?: string | null, device?: string | null, text?: string): Promise<TestResult>
   testModelLoad(family: string, mode: string): Promise<TestResult>
   validateHotkey(hotkey: string): Promise<HotkeyValidation>
+  ollamaStatus(): Promise<OllamaStatus>
+  installOllama(): Promise<OllamaInstallResult>
   save(cfg: Partial<UserConfig>): Promise<SaveResult>
 }

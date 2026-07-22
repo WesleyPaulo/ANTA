@@ -105,6 +105,48 @@ class TestDownloadDispatch(unittest.TestCase):
         self.assertFalse(r["ok"])
 
 
+class TestOllamaAutomation(unittest.TestCase):
+    def test_running_true_quando_responde(self):
+        import urllib.request
+        with mock.patch.object(urllib.request, "urlopen") as up:
+            up.return_value.__enter__.return_value.read.return_value = b"{}"
+            self.assertTrue(downloads.ollama_running())
+
+    def test_running_false_quando_fora(self):
+        import urllib.request
+        with mock.patch.object(urllib.request, "urlopen", side_effect=OSError):
+            self.assertFalse(downloads.ollama_running())
+
+    def test_install_command_windows_usa_winget(self):
+        cmd = downloads.ollama_install_command("win32")
+        self.assertIsNotNone(cmd)
+        self.assertIn("winget", cmd)
+        self.assertIn("Ollama.Ollama", cmd)
+
+    def test_install_command_linux_e_none(self):
+        self.assertIsNone(downloads.ollama_install_command("linux"))
+
+    def test_install_ja_instalado(self):
+        with mock.patch.object(downloads, "ollama_installed", return_value=True):
+            self.assertTrue(downloads.install_ollama()["ok"])
+
+    def test_install_windows_roda_winget(self):
+        with mock.patch.object(downloads, "ollama_installed", return_value=False), \
+             mock.patch.object(downloads, "ollama_install_command",
+                               return_value=["winget", "install"]), \
+             mock.patch.object(downloads, "run_stream", return_value=0) as rs:
+            r = downloads.install_ollama()
+        self.assertTrue(r["ok"])
+        rs.assert_called_once()
+
+    def test_install_sem_automacao_devolve_manual(self):
+        with mock.patch.object(downloads, "ollama_installed", return_value=False), \
+             mock.patch.object(downloads, "ollama_install_command", return_value=None):
+            r = downloads.install_ollama()
+        self.assertFalse(r["ok"])
+        self.assertIn("manual", r)  # comando p/ o usuario rodar
+
+
 class TestDownloadVoice(unittest.TestCase):
     def test_nome_de_catalogo_usa_ensure_voice(self):
         with mock.patch.object(downloads, "voice_installed", return_value=False), \

@@ -75,6 +75,8 @@ export const configApi: ConfigApiFacade = {
   testTts: (voice = null, device = null, text) => callApi('test_tts', voice, device, text),
   testModelLoad: (family, mode) => callApi('test_model_load', family, mode),
   validateHotkey: (hotkey) => callApi('validate_hotkey', hotkey),
+  ollamaStatus: () => callApi('ollama_status'),
+  installOllama: () => callApi('install_ollama'),
   save: (cfg) => callApi('save', cfg),
 }
 

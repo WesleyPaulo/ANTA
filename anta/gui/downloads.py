@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
 from typing import Callable
 
 # kinds validos
@@ -57,6 +58,59 @@ def run_stream(cmd: list[str], on_line: Callable[[str], None] | None = None,
 # --- verificacao (idempotencia) ---
 def ollama_installed() -> bool:
     return shutil.which("ollama") is not None
+
+
+def ollama_running(*, timeout: float = 2.0) -> bool:
+    """True se o servidor do Ollama responde em localhost:11434 (nao so instalado)."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=timeout) as r:
+            r.read()
+        return True
+    except Exception:  # noqa: BLE001 - fora do ar / nao instalado
+        return False
+
+
+def ollama_install_command(platform: str | None = None) -> list[str] | None:
+    """Comando de instalacao do Ollama por SO (None = sem automacao p/ este SO).
+
+    Windows: winget (mostra UAC, mas nao pendura num prompt de terminal).
+    Linux/mac: o instalador oficial usa `sudo` internamente — rodar dentro da GUI
+    penduraria no pedido de senha. Entao NAO auto-rodamos: devolvemos o comando p/
+    o usuario colar no terminal (ver install_ollama)."""
+    plat = platform if platform is not None else sys.platform
+    if plat.startswith("win"):
+        return ["winget", "install", "--id", "Ollama.Ollama", "-e",
+                "--source", "winget", "--accept-package-agreements",
+                "--accept-source-agreements"]
+    return None  # Linux/mac -> caminho manual (sudo)
+
+
+def install_ollama(on_progress: Progress | None = None) -> dict:
+    """Instala o Ollama. Best-effort. Retorna {ok, msg, manual?}.
+
+    `manual` (quando presente) = comando p/ o usuario rodar no terminal (Linux/mac,
+    onde o instalador pede sudo). Windows tenta via winget e transmite o progresso."""
+    if ollama_installed():
+        return {"ok": True, "msg": "ja instalado"}
+    cmd = ollama_install_command()
+    if cmd is None:
+        manual = ("curl -fsSL https://ollama.com/install.sh | sh" if sys.platform != "darwin"
+                  else "brew install ollama")
+        return {"ok": False, "manual": manual,
+                "msg": "Rode este comando no terminal (precisa de sudo) ou instale por ollama.com."}
+    _emit(on_progress, kind="ollama", key="", phase="start", text="Instalando o Ollama...")
+    try:
+        rc = run_stream(cmd, lambda line: _emit(on_progress, kind="ollama", key="",
+                                                phase="line", text=line))
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "msg": str(e),
+                "manual": "instale o Ollama por https://ollama.com"}
+    ok = rc == 0
+    _emit(on_progress, kind="ollama", key="", phase="done" if ok else "error",
+          text="" if ok else f"winget saiu com codigo {rc}")
+    return {"ok": ok, "msg": "" if ok else f"winget saiu com codigo {rc} (instale por ollama.com)."}
 
 
 def llm_installed(tag: str, *, run=subprocess.run) -> bool:
