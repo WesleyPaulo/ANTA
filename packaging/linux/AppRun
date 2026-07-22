@@ -1,0 +1,5 @@
+#!/bin/sh
+# AppRun do AppImage da ANTA: delega ao exe do PyInstaller dentro do AppDir.
+# Passa os argumentos adiante (ex.: `./ANTA.AppImage config`).
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/anta" "$@"

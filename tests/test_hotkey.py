@@ -19,6 +19,13 @@ class TestDefaultCommand(unittest.TestCase):
         self.assertIn('" -m anta', cmd)
         self.assertIn(sys.executable, cmd)
 
+    def test_frozen_nao_usa_dash_m(self):
+        # no build PyInstaller o sys.executable JA e o exe da ANTA -> sem `-m anta`
+        with mock.patch.object(sys, "frozen", True, create=True):
+            cmd = hotkey.default_command()
+        self.assertNotIn("-m anta", cmd)
+        self.assertEqual(cmd, f'"{sys.executable}"')
+
 
 class TestKdeKey(unittest.TestCase):
     def test_conversao_basica(self):

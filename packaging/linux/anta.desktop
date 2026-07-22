@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ANTA
+Comment=Assistente de voz local e offline
+Exec=anta
+Icon=anta
+Categories=Utility;AudioVideo;
+Terminal=false

@@ -21,12 +21,18 @@ from anta.platform.detect import Environment, detect
 
 
 def default_command() -> str:
-    """Prefixo do comando usando o interpretador atual (robusto em venv).
+    """Prefixo do comando que invoca a ANTA (o chamador anexa run/toggle/...).
 
     O interpretador vem ASPADO: no autostart do Windows (HKCU\\...\\Run) e em
     qualquer caminho com espacos (ex.: C:\\Users\\Nome Sobrenome\\...python.exe),
     a string sem aspas quebra na execucao. Aspas sao validas tambem no Exec do
-    .desktop (Linux) e ao colar o comando no atalho do SO."""
+    .desktop (Linux) e ao colar o comando no atalho do SO.
+
+    No build PyInstaller (frozen) NAO ha `-m anta`: o sys.executable JA e o exe
+    da ANTA (o launcher roteia por argv). Anexar `-m anta` faria o exe procurar
+    um modulo e falhar. Entao no frozen o prefixo e so o exe aspado."""
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}"'
     return f'"{sys.executable}" -m anta'
 
 
