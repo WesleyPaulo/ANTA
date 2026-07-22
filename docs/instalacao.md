@@ -56,8 +56,10 @@ anta config          # abre o Configurador (wizard: Modelo → Áudio → Ajuste
 ```
 No fim do wizard, **Salvar e concluir** grava o `config.toml` (com `configured = true`).
 
-> Ollama precisa estar **no ar** para o download do LLM. `ollama list` confirma; se não,
-> inicie o serviço (`systemctl --user start ollama` ou `ollama serve`).
+> **Ollama:** o passo *Instalar* do Configurador **detecta** se o Ollama está instalado e no
+> ar; se faltar, oferece instalar (winget no Windows; comando no terminal no Linux, que usa
+> `sudo`) e baixa o modelo do modo escolhido. Se preferir à mão: `ollama serve` /
+> `systemctl --user start ollama`.
 
 ### 3. Rodar
 ```bash
@@ -112,9 +114,23 @@ usuário (ver [windows.md](windows.md#digitar-só-anta-run-de-qualquer-pasta)). 
 
 ## Executável empacotado (.exe / AppImage)
 
-Gera um **binário nativo** (sem exigir Python/Node do usuário final). Roda **uma vez em
-cada SO**. Detalhes: [../packaging/README.md](../packaging/README.md).
+Um **binário nativo** que roda **sem o usuário instalar Python/Node** (o código, a UI,
+STT/TTS/RAG vão no bundle). A única dependência externa que **não** vem no pacote é o
+**Ollama** (o motor do LLM) + o download do modelo — mas o Configurador **detecta e
+oferece instalar** o Ollama no passo *Instalar*, e baixa o modelo ali mesmo.
 
+### Baixar pronto (Release)
+Ao criar uma tag `vX.Y.Z`, um **GitHub Actions** ([../.github/workflows/release.yml](../.github/workflows/release.yml))
+builda os dois SOs e publica na **Release** do repositório:
+- **Windows:** `ANTA-Setup.exe` (instala + atalho + autostart).
+- **Linux:** `ANTA-x86_64.AppImage` (baixa e executa).
+
+```bash
+git tag v0.4.0 && git push origin v0.4.0   # dispara o build + a Release
+```
+
+### Buildar localmente
+Roda **uma vez em cada SO** (detalhes: [../packaging/README.md](../packaging/README.md)):
 ```bash
 # Linux
 ./packaging/build.sh --appimage      # -> dist/ANTA-x86_64.AppImage

@@ -21,7 +21,14 @@ Rode **uma vez em cada SO** (o binário é específico da plataforma; mesmo cód
   módulos **reais**, então faster-whisper/piper/etc. precisam existir no venv.
 - PyInstaller (os scripts instalam se faltar).
 
-## Build
+## Build automático (CI → Release)
+
+`.github/workflows/release.yml` builda os dois SOs nos runners do GitHub e publica na
+**Release** ao empurrar uma tag `vX.Y.Z` (`git tag v0.4.0 && git push origin v0.4.0`).
+"Run workflow" (manual) só builda, sem publicar. O 1º build costuma pedir ajuste de
+`hiddenimports`/backend (ver comentários no workflow).
+
+## Build (local)
 
 ### Linux / macOS
 ```bash
