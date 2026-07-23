@@ -48,7 +48,8 @@ const MOCK_CATALOG: Catalog = {
 }
 
 const MOCK_ENV: EnvInfo = {
-  os: '(mock) Browser', session: 'n/a', desktop: 'n/a', is_wayland: false,
+  os: 'unknown', os_label: 'Browser (mock)', detail: 'atalho manual',
+  session: 'n/a', desktop: 'n/a', release: '', is_wayland: false,
   hotkey_strategy: 'manual', captures_hotkey_in_process: false,
 }
 

@@ -68,12 +68,18 @@ class ConfigApi:
 
     # --- ambiente / hardware ---
     def get_environment(self) -> dict:
-        """SO, sessao e estrategia de atalho (pra UI adaptar instrucoes de hotkey)."""
+        """SO, sessao e estrategia de atalho (pra UI adaptar instrucoes de hotkey).
+
+        `os_label`/`detail` sao os campos de MOSTRAR (ver Environment.label): o card
+        exibia `os` e `session` crus e no Windows saia "windows / windows"."""
         env = self._env_fn()()
         return {
             "os": env.os,
+            "os_label": env.label,
+            "detail": env.detail,
             "session": env.session,
             "desktop": env.desktop,
+            "release": env.release,
             "is_wayland": env.is_wayland,
             "hotkey_strategy": env.hotkey_strategy,
             "captures_hotkey_in_process": env.captures_hotkey_in_process,

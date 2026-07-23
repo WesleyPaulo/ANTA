@@ -1,8 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Card, StatusPill } from '@anta/ui'
 import { store } from '../store'
 
 const hw = () => store.hardware
+
+// Tolerante a backend antigo (mock/versão sem os_label): cai nos campos crus.
+const ambiente = computed(() => {
+  const e = store.environment
+  return {
+    label: e?.os_label || e?.os || '—',
+    detail: e?.detail || [e?.session, e?.desktop].filter(Boolean).join(' · '),
+  }
+})
 </script>
 
 <template>
@@ -23,8 +33,9 @@ const hw = () => store.hardware
       </div>
       <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <p class="text-xs uppercase tracking-wide text-slate-400">Ambiente</p>
-        <p class="mt-1 text-sm font-medium">{{ store.environment?.os }}</p>
-        <p class="text-xs text-slate-400">{{ store.environment?.session }}</p>
+        <!-- os_label/detail vêm prontos do Python: os campos crus davam "windows windows" -->
+        <p class="mt-1 text-sm font-medium">{{ ambiente.label }}</p>
+        <p class="text-xs text-slate-400">{{ ambiente.detail }}</p>
       </div>
     </div>
 

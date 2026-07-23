@@ -19,7 +19,7 @@ const envHint = () => {
   const e = store.environment
   if (!e) return ''
   if (e.hotkey_strategy === 'compositor') return 'Wayland/KDE: o atalho é registrado no sistema (via "anta toggle").'
-  if (e.captures_hotkey_in_process) return 'O daemon captura o atalho direto (X11/Windows).'
+  if (e.captures_hotkey_in_process) return 'A ANTA captura o atalho direto (X11/Windows).'
   return 'Você vinculará o atalho manualmente ao "anta toggle".'
 }
 </script>

@@ -33,6 +33,43 @@ class TestHotkeyStrategy(unittest.TestCase):
         self.assertFalse(_env("macos", "unknown").captures_hotkey_in_process)
 
 
+class TestRotulos(unittest.TestCase):
+    """Regressao: o card 'Ambiente' do Configurador imprimia `os` e `session` crus,
+    e no Windows os dois valem "windows" — a tela dizia "windows / windows"."""
+
+    def test_windows_com_versao(self):
+        e = Environment(os="windows", session="windows", desktop="", release="11")
+        self.assertEqual(e.label, "Windows 11")
+        self.assertNotIn("windows windows", f"{e.label} {e.detail}".lower())
+
+    def test_windows_diz_como_o_atalho_funciona(self):
+        e = Environment(os="windows", session="windows", desktop="", release="11")
+        self.assertEqual(e.detail, "atalho global automatico")
+
+    def test_linux_encurta_o_kernel_e_mostra_sessao(self):
+        e = Environment(os="linux", session="wayland", desktop="KDE",
+                        release="6.6.87.2-microsoft-standard-WSL2")
+        self.assertEqual(e.label, "Linux 6.6")
+        self.assertEqual(e.detail, "wayland · KDE")
+
+    def test_linux_sem_desktop(self):
+        e = Environment(os="linux", session="x11", desktop="", release="6.1.0")
+        self.assertEqual(e.detail, "x11")
+
+    def test_wayland_sem_captura_diz_atalho_do_sistema(self):
+        e = Environment(os="unknown", session="wayland", desktop="")
+        self.assertEqual(e.detail, "atalho manual")  # so o Linux vira 'compositor'
+
+    def test_sem_release_nao_inventa(self):
+        self.assertEqual(Environment(os="macos", session="unknown", desktop="").label,
+                         "macOS")
+
+    def test_detect_preenche_release(self):
+        with mock.patch("platform.system", return_value="Windows"), \
+             mock.patch("platform.release", return_value="11"):
+            self.assertEqual(detect().label, "Windows 11")
+
+
 class TestDetect(unittest.TestCase):
     def test_detecta_linux_wayland(self):
         with mock.patch("platform.system", return_value="Linux"), \

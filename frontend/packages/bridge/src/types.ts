@@ -41,8 +41,11 @@ export interface Catalog {
 
 export interface EnvInfo {
   os: string
+  os_label: string // "Windows 11" — o que a UI mostra (os/session crus davam "windows windows")
+  detail: string // 2a linha: "wayland · KDE" no Linux; "atalho global automatico" no Windows
   session: string
   desktop: string
+  release: string
   is_wayland: boolean
   hotkey_strategy: string
   captures_hotkey_in_process: boolean

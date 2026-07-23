@@ -37,10 +37,11 @@ class _FakeDetection:
 
 
 def _fake_env():
-    return SimpleNamespace(
-        os="Linux", session="x11", desktop="gnome", is_wayland=False,
-        hotkey_strategy="auto_x11", captures_hotkey_in_process=True,
-    )
+    # Environment de verdade (nao um SimpleNamespace): a ponte usa propriedades
+    # derivadas (label/detail), e um fake solto deixaria de refletir o contrato.
+    from anta.platform.detect import Environment
+
+    return Environment(os="linux", session="x11", desktop="GNOME", release="6.1.0")
 
 
 class TestPingEcho(unittest.TestCase):
@@ -55,10 +56,16 @@ class TestEnvironment(unittest.TestCase):
     def test_get_environment(self):
         api = ConfigApi(detect_env=_fake_env)
         env = api.get_environment()
-        self.assertEqual(env["os"], "Linux")
+        self.assertEqual(env["os"], "linux")
         self.assertEqual(env["hotkey_strategy"], "auto_x11")
         self.assertFalse(env["is_wayland"])
         self.assertTrue(env["captures_hotkey_in_process"])
+
+    def test_manda_rotulos_prontos_para_a_tela(self):
+        # o card 'Ambiente' imprimia os campos crus -> "windows windows" no Windows
+        env = ConfigApi(detect_env=_fake_env).get_environment()
+        self.assertEqual(env["os_label"], "Linux 6.1")
+        self.assertEqual(env["detail"], "x11 · GNOME")
 
 
 class TestHardware(unittest.TestCase):
