@@ -61,6 +61,22 @@ def _ram_gb_stdlib() -> float:
     return 0.0
 
 
+def process_ram_gb() -> float | None:
+    """RAM residente (RSS) DESTE processo em GiB, ou None se nao der pra medir.
+
+    E o numero que o HUD mostra como "RAM da ANTA": o Whisper e o embedder ficam
+    aqui dentro (por principio, na CPU). Usa psutil, que ja e dependencia declarada
+    (o `ram_gb` acima tem fallback stdlib porque roda no Configurador, que pode abrir
+    antes das deps completas; o HUD nao — se chegou aqui, psutil existe). None se
+    faltar: 'nao sei' e honesto, chutar um numero de memoria nao."""
+    try:
+        import psutil
+
+        return round(psutil.Process().memory_info().rss / _GIB, 2)
+    except Exception:  # noqa: BLE001 - psutil ausente/sem permissao
+        return None
+
+
 def disk_free_gb(path: str | Path | None = None) -> float:
     """Espaco LIVRE em disco (GiB) na particao de `path` (default: home).
 

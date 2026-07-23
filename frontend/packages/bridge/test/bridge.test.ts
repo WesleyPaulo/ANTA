@@ -82,4 +82,44 @@ describe('runtimeApi + onState', () => {
     off()
     expect(w.__antaOnState).toBeUndefined()
   })
+
+  it('cancel mapeia para cancel (metodo proprio, nao um toggle)', async () => {
+    const spy = vi.fn().mockResolvedValue({ ok: true })
+    ;(window as Win).pywebview = { api: { cancel: spy } }
+    await runtimeApi.cancel()
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('getMemory mapeia para get_memory', async () => {
+    const spy = vi.fn().mockResolvedValue({ vram_used_gb: 5.2 })
+    ;(window as Win).pywebview = { api: { get_memory: spy } }
+    const m = await runtimeApi.getMemory()
+    expect(m.vram_used_gb).toBe(5.2)
+  })
+})
+
+describe('mock do HUD (dev no browser)', () => {
+  // O mock e o unico jeito de exercitar o HUD sem Python; ele tem que ROTEAR como
+  // o Session.request(), senao a UI e desenvolvida contra um comportamento que nao existe.
+  it('toggle durante a resposta para, em vez de gravar de novo', async () => {
+    setReadyTimeoutMs(5)
+    const eventos: string[] = []
+    const off = onState(((e: { state: string }) => eventos.push(e.state)) as never)
+    await runtimeApi.toggle() // pronto -> ouvindo
+    await runtimeApi.toggle() // ouvindo -> processando
+    await runtimeApi.toggle() // processando -> PARA (nao volta a ouvir)
+    off()
+    expect(eventos).toEqual(['ouvindo', 'processando', 'pronto'])
+  })
+
+  it('desalocado ignora o gatilho ate carregar', async () => {
+    setReadyTimeoutMs(5)
+    await runtimeApi.unloadModel()
+    const eventos: string[] = []
+    const off = onState(((e: { state: string }) => eventos.push(e.state)) as never)
+    await runtimeApi.toggle()
+    off()
+    expect(eventos).toEqual([])
+    await runtimeApi.loadModel() // volta ao normal p/ os outros testes
+  })
 })

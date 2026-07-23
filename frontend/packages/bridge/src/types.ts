@@ -149,11 +149,22 @@ export interface ModelResult {
   msg: string
 }
 
+// Uso de memoria do app residente (null = nao deu pra medir; o HUD omite).
+export interface MemoryInfo {
+  loaded: boolean
+  vram_used_gb: number | null
+  vram_total_gb: number | null
+  ram_used_gb: number | null
+  llm: string
+}
+
 export interface RuntimeApiFacade {
   getState(): Promise<{ state: RuntimeState }>
   toggle(): Promise<void>
+  cancel(): Promise<{ ok: boolean }>
   loadModel(): Promise<ModelResult>
   unloadModel(): Promise<ModelResult>
+  getMemory(): Promise<MemoryInfo>
   getConfig(): Promise<UserConfig>
   listMicrophones(): Promise<DeviceInfo[]>
   listSpeakers(): Promise<DeviceInfo[]>

@@ -6,15 +6,16 @@ Modelo de threads (o pywebview e dono da thread principal / GUI):
   - Thread WORKER: aquece os modelos (carregando->pronto) e roda o loop push-to-talk
     (`Session.toggle`), que emite os estados via on_state. O TTS bloqueia AQUI, entao
     a GUI nunca trava.
-  - Tres fontes de gatilho convergem no mesmo Event: pynput, SIGUSR1 (`anta toggle`)
-    e o botao do HUD (`RuntimeApi.toggle`). `Session.on` ja sequencia grava/para.
+  - Tres fontes de gatilho convergem em `Session.request()`: pynput, SIGUSR1
+    (`anta toggle`) e o botao do HUD (`RuntimeApi.toggle`). E a `request` que decide
+    gravar / parar / ignorar (suspenso) — enfileirar sempre era o bug do botao
+    "Falar" ativo durante a fala.
 
 So LE o config (single-writer: quem escreve e o Configurador).
 """
 from __future__ import annotations
 
 import os
-import signal
 import sys
 import threading
 
@@ -23,6 +24,28 @@ from anta.gui.bridge_runtime import RuntimeApi
 
 _APP = "runtime"
 _TITLE = "ANTA"
+
+
+def _fechar_para_a_bandeja(window, api, tray) -> bool:
+    """Com bandeja no ar, o X ESCONDE a janela em vez de matar o processo.
+
+    Um app com icone na bandeja promete continuar rodando; fechar a janela e
+    perder o atalho global (e a ANTA inteira) contradiz isso. 'Sair' do menu
+    encerra de verdade — ele marca `tray.quitting`, que este handler respeita
+    (o `destroy()` passa por aqui tambem). Best-effort: se o backend do pywebview
+    nao expuser o evento, o X volta a encerrar, como antes."""
+    def _closing(*_a):
+        if tray.quitting:
+            return True
+        api.hide()
+        return False  # cancela o fechamento
+
+    try:
+        window.events.closing += _closing
+        return True
+    except Exception as e:  # noqa: BLE001 - backend sem o evento: comportamento antigo
+        print(f"[anta] fechar-para-a-bandeja indisponivel ({e}).", file=sys.stderr)
+        return False
 
 
 def main() -> None:
@@ -43,13 +66,15 @@ def main() -> None:
               "       pip install -r requirements.txt", file=sys.stderr)
         sys.exit(1)
 
-    from anta.__main__ import Session, _notify, _pidfile, _to_pynput_hotkey
+    from anta.__main__ import (
+        Session, _notify, _pidfile, _to_pynput_hotkey, install_sigusr1,
+    )
     from anta.core.capture import Recorder
     from anta.core.config import load_families, load_user_config
     from anta.core.pipeline import Pipeline
     from anta.core.states import State
     from anta.gui.state import StateMachine, make_pywebview_emitter
-    from anta.gui.tray import start_tray
+    from anta.gui.tray import Tray
     from anta.platform.detect import detect
 
     cfg = load_user_config()
@@ -66,12 +91,12 @@ def main() -> None:
     sm = StateMachine(initial=State.CARREGANDO)
     trigger = threading.Event()
     recorder = Recorder(cfg.mic_device)
-    session = Session(recorder, pipeline, _notify, on_state=sm.transition)
+    session = Session(recorder, pipeline, _notify, on_state=sm.transition, trigger=trigger)
 
-    api = RuntimeApi(sm, trigger, pipeline)
+    api = RuntimeApi(sm, trigger, pipeline, session=session)
     window = webview.create_window(
         _TITLE, url=assets.web_url(_APP), js_api=api,
-        width=400, height=540, min_size=(360, 480), on_top=True,
+        width=400, height=600, min_size=(360, 520), on_top=True,
     )
     sm.add_listener(make_pywebview_emitter(window))
     api.set_window(window)
@@ -80,8 +105,7 @@ def main() -> None:
     pid_path = _pidfile()
     pid_path.parent.mkdir(parents=True, exist_ok=True)
     pid_path.write_text(str(os.getpid()), encoding="utf-8")
-    if hasattr(signal, "SIGUSR1"):
-        signal.signal(signal.SIGUSR1, lambda *_: trigger.set())
+    install_sigusr1(session)
 
     env = detect()
     listener = None
@@ -89,7 +113,7 @@ def main() -> None:
         try:
             from pynput import keyboard
 
-            listener = keyboard.GlobalHotKeys({_to_pynput_hotkey(cfg.hotkey): trigger.set})
+            listener = keyboard.GlobalHotKeys({_to_pynput_hotkey(cfg.hotkey): session.request})
             listener.start()
         except Exception as e:  # noqa: BLE001
             _notify(f"nao consegui registrar {cfg.hotkey} in-process ({e}).")
@@ -123,7 +147,18 @@ def main() -> None:
                         sm.transition(State.PRONTO)
 
     threading.Thread(target=worker, daemon=True).start()
-    icon = start_tray(api, window)
+
+    # Bandeja: presenca visivel enquanto a janela esta escondida. Ela ASSINA a
+    # maquina de estados (icone + tooltip mudam com o estado) — o icone parado nao
+    # dizia nada, e um app residente que ocupa VRAM tem que mostrar o que esta fazendo.
+    tray = Tray(api, window, hotkey=cfg.hotkey)
+    if tray.start():
+        sm.add_listener(tray.on_state)
+        _fechar_para_a_bandeja(window, api, tray)
+    else:
+        # Sem bandeja o X CONTINUA encerrando: esconder a janela sem icone nenhum
+        # deixaria a ANTA invisivel de novo, que e exatamente o que queremos evitar.
+        _notify("bandeja indisponivel neste ambiente — a ANTA fica so na janela.")
 
     try:
         webview.start()
@@ -132,11 +167,7 @@ def main() -> None:
         trigger.set()  # destrava o worker p/ ele ver o stop
         if listener is not None:
             listener.stop()
-        if icon is not None:
-            try:
-                icon.stop()
-            except Exception:  # noqa: BLE001
-                pass
+        tray.stop()
         pid_path.unlink(missing_ok=True)
 
 

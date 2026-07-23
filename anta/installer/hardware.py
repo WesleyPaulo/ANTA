@@ -60,6 +60,36 @@ def detect_gpus() -> list[GPU]:
     return _via_nvidia_smi() or _via_pynvml()
 
 
+def vram_usage_gb() -> tuple[float | None, float | None]:
+    """(VRAM em uso, VRAM total) em GiB da GPU mais capaz, ou (None, None).
+
+    E a ocupacao da PLACA, nao a de um processo: o LLM vive dentro do Ollama, que
+    e outro processo — medir so a ANTA daria ~0 e mentiria sobre o custo real. Sem
+    NVIDIA (ou sem nvidia-smi) devolve (None, None) e o HUD simplesmente omite."""
+    if shutil.which("nvidia-smi") is None:
+        return None, None
+    try:
+        out = subprocess.check_output(
+            ["nvidia-smi",
+             "--query-gpu=memory.used,memory.total",
+             "--format=csv,noheader,nounits"],
+            text=True, timeout=5,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None, None
+    melhor: tuple[float, float] | None = None
+    for line in out.strip().splitlines():
+        if not line.strip():
+            continue
+        try:
+            usada, total = (float(p.strip()) for p in line.split(",")[:2])
+        except ValueError:
+            continue
+        if melhor is None or total > melhor[1]:
+            melhor = (round(usada / 1024, 1), round(total / 1024, 1))
+    return melhor if melhor is not None else (None, None)
+
+
 def best_vram_gb() -> float:
     """VRAM da GPU mais capaz. 0.0 se nenhuma GPU NVIDIA for encontrada."""
     gpus = detect_gpus()

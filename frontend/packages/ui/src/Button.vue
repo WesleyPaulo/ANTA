@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Botão da paleta: primary = azul escuro; secondary/ghost = neutro.
-type Variant = 'primary' | 'secondary' | 'ghost'
+// Botão da paleta: primary = azul escuro; secondary/ghost = neutro;
+// danger = vermelho (parar/interromper — a única ação destrutiva do HUD).
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const props = withDefaults(
   defineProps<{ variant?: Variant; disabled?: boolean; type?: 'button' | 'submit' }>(),
@@ -17,6 +18,9 @@ const VARIANTS: Record<Variant, string> = {
   ghost:
     'text-slate-600 hover:bg-slate-100 focus-visible:ring-brand-500 ' +
     'dark:text-slate-300 dark:hover:bg-slate-800',
+  danger:
+    'bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500 ' +
+    'disabled:bg-slate-300 dark:disabled:bg-slate-700',
 }
 </script>
 

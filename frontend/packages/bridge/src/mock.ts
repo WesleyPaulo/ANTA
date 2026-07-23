@@ -93,6 +93,7 @@ function emitProgress(kind: string, key: string) {
 
 // --- runtime (HUD): estado simulado + eventos via window.__antaOnState ---
 let mockState: RuntimeState = 'pronto'
+let mockTimers: ReturnType<typeof setTimeout>[] = []
 
 function pushState(state: RuntimeState, extra?: Partial<StateEvent>) {
   mockState = state
@@ -100,12 +101,30 @@ function pushState(state: RuntimeState, extra?: Partial<StateEvent>) {
   w.__antaOnState?.({ state, ...extra })
 }
 
+function clearMockTimers() {
+  mockTimers.forEach(clearTimeout)
+  mockTimers = []
+}
+
 function simulateToggle() {
-  if (mockState === 'ouvindo') return // ja ouvindo: ignora
+  if (mockState === 'descarregado') return // suspenso: gatilho nao grava
+  if (mockState === 'ouvindo') {
+    // 2a pressao: encerra a gravacao e roda o "pipeline"
+    pushState('processando')
+    mockTimers.push(setTimeout(() => pushState('respondendo'), 700))
+    mockTimers.push(setTimeout(() => pushState('pronto', { text: 'Resposta (mock).' }), 3200))
+    return
+  }
+  if (mockState === 'processando' || mockState === 'respondendo') {
+    simulateCancel() // mesmo roteamento do Session.request()
+    return
+  }
   pushState('ouvindo')
-  setTimeout(() => pushState('processando'), 900)
-  setTimeout(() => pushState('respondendo', { text: 'responder' }), 1600)
-  setTimeout(() => pushState('pronto'), 2600)
+}
+
+function simulateCancel() {
+  clearMockTimers()
+  pushState('pronto', { text: 'Parado.' })
 }
 
 export async function callMock<T = unknown>(name: string, ...args: unknown[]): Promise<T> {
@@ -159,13 +178,26 @@ export async function callMock<T = unknown>(name: string, ...args: unknown[]): P
     case 'toggle':
       simulateToggle()
       return undefined as T
+    case 'cancel':
+      simulateCancel()
+      return { ok: true } as T
     case 'load_model':
+      clearMockTimers()
       pushState('carregando')
-      setTimeout(() => pushState('pronto'), 900)
+      mockTimers.push(setTimeout(() => pushState('pronto'), 900))
       return { ok: true, msg: '' } as T
     case 'unload_model':
+      clearMockTimers()
       pushState('descarregado')
       return { ok: true, msg: '' } as T
+    case 'get_memory':
+      return {
+        loaded: mockState !== 'descarregado',
+        vram_used_gb: mockState === 'descarregado' ? 0.4 : 5.2,
+        vram_total_gb: 8.0,
+        ram_used_gb: mockState === 'descarregado' ? 0.3 : 1.4,
+        llm: 'qwen3:4b-instruct (mock)',
+      } as T
     case 'open_configurador':
       return { ok: true } as T
     case 'hide':

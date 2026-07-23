@@ -13,19 +13,60 @@ onMounted(async () => {
 const META: Record<RuntimeState, { label: string; hint: string }> = {
   carregando: { label: 'Carregando modelo', hint: 'Um instante…' },
   pronto: { label: 'Pronto', hint: 'Aperte o atalho ou o botão para falar' },
-  ouvindo: { label: 'Ouvindo', hint: 'Aperte de novo para parar' },
-  processando: { label: 'Processando', hint: 'Pensando…' },
-  respondendo: { label: 'Respondendo', hint: '' },
-  descarregado: { label: 'Modelo descarregado', hint: 'Carregue para usar de novo' },
+  ouvindo: { label: 'Ouvindo', hint: 'Aperte de novo para parar e enviar' },
+  processando: { label: 'Processando', hint: 'Pensando… toque em Parar para cancelar' },
+  respondendo: { label: 'Respondendo', hint: 'Falando… toque em Parar para interromper' },
+  descarregado: { label: 'Memória desalocada', hint: 'A ANTA está pausada até você carregar' },
   erro: { label: 'Ops', hint: '' },
 }
 
 const meta = computed(() => META[store.state])
 const isMicError = computed(() => store.state === 'erro' && store.code === 'mic')
 const isOff = computed(() => store.state === 'descarregado')
-const podeDescarregar = computed(
+
+// O botão principal muda de PAPEL com o estado — não só de rótulo. Enquanto a ANTA
+// respondia (TTS falando) ele ficava "Falar" e ativo: clicar não parava nada e ainda
+// enfileirava uma gravação para quando o turno acabasse.
+type Acao = 'toggle' | 'cancel' | 'load' | 'nada'
+const botao = computed<{ label: string; acao: Acao; variant: 'primary' | 'danger'; disabled: boolean }>(() => {
+  switch (store.state) {
+    case 'descarregado':
+      return { label: 'Carregar memória', acao: 'load', variant: 'primary', disabled: store.busy }
+    case 'carregando':
+      return { label: 'Carregando…', acao: 'nada', variant: 'primary', disabled: true }
+    case 'ouvindo':
+      return { label: 'Parar e enviar', acao: 'toggle', variant: 'danger', disabled: false }
+    case 'processando':
+      return { label: 'Parar', acao: 'cancel', variant: 'danger', disabled: false }
+    case 'respondendo':
+      return { label: 'Parar', acao: 'cancel', variant: 'danger', disabled: false }
+    default:
+      return { label: 'Falar', acao: 'toggle', variant: 'primary', disabled: store.busy }
+  }
+})
+
+function acionar() {
+  const { acao } = botao.value
+  if (acao === 'toggle') store.toggle()
+  else if (acao === 'cancel') store.cancel()
+  else if (acao === 'load') store.load()
+}
+
+const podeDesalocar = computed(
   () => !['descarregado', 'carregando'].includes(store.state) && !store.busy,
 )
+
+// Linha de memória: a prova de que o app residente está vivo e o que ele custa.
+const memoria = computed(() => {
+  const m = store.memoria
+  if (!m) return ''
+  const partes: string[] = []
+  if (m.vram_used_gb !== null && m.vram_total_gb !== null) {
+    partes.push(`VRAM ${m.vram_used_gb.toFixed(1)}/${m.vram_total_gb.toFixed(1)} GB`)
+  }
+  if (m.ram_used_gb !== null) partes.push(`RAM ${m.ram_used_gb.toFixed(1)} GB`)
+  return partes.join(' · ')
+})
 
 // cor + halo (ring) por estado — classes completas p/ o purge do Tailwind ver
 const orbClass = computed(() => {
@@ -107,32 +148,30 @@ const orbBreathe = computed(() => (store.state === 'pronto' ? 'orb-breathe' : ''
     </main>
 
     <!-- Controles -->
-    <footer class="space-y-2 px-6 pb-6">
+    <footer class="space-y-2 px-6 pb-5">
       <Button
-        v-if="isOff"
         class="w-full justify-center"
-        :disabled="store.busy"
-        @click="store.load()"
+        :variant="botao.variant"
+        :disabled="botao.disabled"
+        @click="acionar()"
       >
-        Carregar modelo
-      </Button>
-      <Button
-        v-else
-        class="w-full justify-center"
-        :disabled="store.state === 'carregando'"
-        @click="store.toggle()"
-      >
-        {{ store.state === 'ouvindo' ? 'Parar' : 'Falar' }}
+        {{ botao.label }}
       </Button>
 
       <button
-        v-if="podeDescarregar"
+        v-if="podeDesalocar"
         type="button"
         class="w-full rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         @click="store.unload()"
       >
-        Descarregar modelo da memória
+        Desalocar memória
       </button>
+
+      <!-- O que a ANTA ocupa agora: um residente sem número na tela vira suspeita -->
+      <p class="h-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+        <template v-if="isOff">Memória liberada — a ANTA está pausada</template>
+        <template v-else>{{ memoria }}</template>
+      </p>
     </footer>
   </div>
 </template>

@@ -57,5 +57,20 @@ class TestRam(unittest.TestCase):
             self.assertEqual(detection.ram_gb(), 3.3)
 
 
+class TestProcessRam(unittest.TestCase):
+    """RAM do proprio processo — o Whisper e o embedder vivem aqui (CPU, por
+    principio). E o numero que o HUD mostra pra provar que o residente nao vazou."""
+
+    def test_mede_o_rss(self):
+        medido = detection.process_ram_gb()
+        self.assertIsNotNone(medido)
+        self.assertGreater(medido, 0.0)
+
+    def test_sem_psutil_devolve_none(self):
+        # None (nao sei) e diferente de 0.0 (nao usa nada): o HUD omite a linha
+        with mock.patch.dict("sys.modules", {"psutil": None}):
+            self.assertIsNone(detection.process_ram_gb())
+
+
 if __name__ == "__main__":
     unittest.main()
