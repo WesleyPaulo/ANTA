@@ -54,13 +54,13 @@ function prev() {
     </header>
 
     <!-- Passos -->
-    <div class="border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-900">
+    <div class="border-b border-slate-200 bg-white px-6 py-2.5 dark:border-slate-800 dark:bg-slate-900">
       <div class="mx-auto max-w-4xl">
         <Stepper :steps="STEPS" :current="currentIndex" :clickable="store.editMode" @go="go" />
       </div>
     </div>
 
-    <main class="mx-auto max-w-4xl px-6 py-6">
+    <main class="mx-auto max-w-4xl px-6 py-5">
       <!-- Carregando -->
       <div v-if="store.loading" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
         Detectando hardware e carregando o catálogo…
@@ -81,7 +81,7 @@ function prev() {
         </router-view>
 
         <!-- Navegação (o passo "Instalar" tem o botão de salvar próprio) -->
-        <div v-if="!isLast" class="mt-6 flex items-center justify-between">
+        <div v-if="!isLast" class="mt-5 flex items-center justify-between">
           <Button variant="ghost" :disabled="currentIndex === 0" @click="prev">← Voltar</Button>
           <Button @click="next">Avançar →</Button>
         </div>

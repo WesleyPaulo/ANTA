@@ -27,7 +27,16 @@ class TestWindowSize(unittest.TestCase):
             largura, altura = config_app.window_size()
         self.assertLessEqual(largura, 1366)
         self.assertLessEqual(altura, 768)
-        self.assertEqual(altura, int(768 * 0.92))  # sobra pra barra de tarefas
+        self.assertEqual(altura, int(768 * 0.90))  # sobra pra barra de tarefas
+
+    def test_cabe_em_1080p_com_escala_de_125(self):
+        """O caso comum do Windows: o WinForms re-escala a janela por DPI (96 ->
+        120), entao a altura pedida vira altura*1.25 em pixels fisicos. E o mesmo
+        clamp precisa valer tanto se `screens` reportar logico quanto fisico."""
+        for tela in ((1536, 864), (1920, 1080)):  # leitura logica e fisica
+            with _fake_webview(*tela):
+                _l, altura = config_app.window_size()
+            self.assertLessEqual(altura * 1.25, 1080, f"estourou em {tela}")
 
     def test_nunca_abaixo_do_minimo(self):
         # tela minuscula: o layout quebra abaixo do minimo de qualquer jeito, e uma
@@ -44,7 +53,7 @@ class TestWindowSize(unittest.TestCase):
     def test_preferido_cabe_o_wizard(self):
         # regressao: 1040x760 nao comportava o passo 'Modelo' inteiro (cards de
         # hardware + tabela de 6 modos) — a janela ja abria com rolagem
-        self.assertGreaterEqual(config_app._PREFERIDO[1], 860)
+        self.assertGreaterEqual(config_app._PREFERIDO[1], 820)
 
 
 class TestMostrar(unittest.TestCase):

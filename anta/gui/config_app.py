@@ -17,19 +17,26 @@ from anta.gui.bridge_config import ConfigApi
 _APP = "configurador"
 _TITLE = "ANTA — Configurador"
 
-# Tamanho pedido / minimo aceitavel. O pedido cabe o wizard inteiro sem rolagem em
-# tela cheia HD; a `window_size` reduz ate caber na tela do usuario.
-_PREFERIDO = (1180, 900)
+# Tamanho pedido / minimo aceitavel. 840 de altura e o teto seguro do caso comum
+# (1080p com escala de 125%): o WinForms re-escala a janela por DPI
+# (AutoScaleMode.Dpi sobre 96), entao 840 "logicos" viram 1050 fisicos e ainda cabem
+# em 1080. Pedir 900 estouraria a tela justamente nas maquinas mais comuns.
+_PREFERIDO = (1150, 840)
 _MINIMO = (880, 640)
 
 
-def window_size(preferido=_PREFERIDO, minimo=_MINIMO, margem: float = 0.92):
+def window_size(preferido=_PREFERIDO, minimo=_MINIMO, margem: float = 0.90):
     """(largura, altura) inicial que CABE na tela — nunca maior que ela.
 
-    Pedir 1180x900 numa tela de 1366x768 abre uma janela mais alta que o monitor:
+    Pedir 1150x840 numa tela de 1366x768 abre uma janela mais alta que o monitor:
     o rodape (onde ficam Voltar/Avancar e o botao de salvar) nasce fora da area
     visivel. Aqui o pedido e cortado pela tela real e so entao pelo minimo, que
-    e o piso abaixo do qual o layout quebra de qualquer jeito."""
+    e o piso abaixo do qual o layout quebra de qualquer jeito.
+
+    A margem cobre a barra de tarefas E a incerteza de unidade: `webview.screens`
+    le a tela ANTES do `SetProcessDPIAware()` do proprio pywebview, entao pode vir
+    em pixels logicos (escalados) ou fisicos. Com 0.90 o resultado cabe nos dois
+    casos — o pedido ja e conservador, o clamp e a rede de seguranca."""
     largura, altura = preferido
     try:
         import webview
