@@ -50,6 +50,46 @@ class TestSpeakGuards(unittest.TestCase):
         tts.speak("oi", voice_path="/caminho/que/nao/existe.onnx")
 
 
+class TestInterrupcao(unittest.TestCase):
+    """Botao 'Parar' do HUD: a fala tem que morrer, nao so ser adiada."""
+
+    def tearDown(self):
+        tts.reset()  # o Event e de modulo: nao vazar cancelamento entre testes
+
+    def test_stop_marca_e_chama_sd_stop(self):
+        fake = mock.MagicMock()
+        with mock.patch.dict(sys.modules, {"sounddevice": fake}):
+            tts.stop()
+        self.assertTrue(tts.cancelled())
+        fake.stop.assert_called_once()
+
+    def test_stop_sem_sounddevice_ainda_marca(self):
+        # sem PortAudio/sounddevice o audio nem tocava; a marca ainda tem que valer
+        with mock.patch.dict(sys.modules, {"sounddevice": None}):
+            tts.stop()
+        self.assertTrue(tts.cancelled())
+
+    def test_reset_limpa(self):
+        tts.stop()
+        tts.reset()
+        self.assertFalse(tts.cancelled())
+
+    def test_speak_nao_sintetiza_depois_de_parar(self):
+        # cancelou antes de comecar: nem chega no piper (evita fala fantasma no fim
+        # de um turno que o usuario ja tinha mandado parar)
+        with mock.patch.object(tts, "_synthesize") as synth:
+            tts.stop()
+            tts.speak("oi", voice_path="/qualquer.onnx")
+        synth.assert_not_called()
+
+    def test_play_nao_toca_depois_de_parar(self):
+        fake = mock.MagicMock()
+        with mock.patch.dict(sys.modules, {"sounddevice": fake}):
+            tts.stop()
+            tts._play(b"\x00\x01", 22050, None)
+        fake.play.assert_not_called()
+
+
 class TestEnsureVoice(unittest.TestCase):
     def test_nao_baixa_se_ja_existe(self):
         with tempfile.TemporaryDirectory() as d:

@@ -70,16 +70,71 @@ def _to_pynput_hotkey(hotkey: str) -> str:
 class Session:
     """Maquina de estado do push-to-talk: alterna gravar/encerrar e roda o
     pipeline ao encerrar. Isolada de run() (que so faz wiring de ciclo de vida)
-    para ser testavel com fakes de recorder/pipeline/notify."""
+    para ser testavel com fakes de recorder/pipeline/notify.
 
-    def __init__(self, recorder, pipeline, notify=_notify, on_state=None) -> None:
+    `request()` e a entrada UNICA de qualquer gatilho (atalho global, SIGUSR1,
+    botao do HUD, menu da bandeja) e e segura de chamar de qualquer thread: ela
+    ROTEIA por estado em vez de sempre enfileirar uma gravacao. Sem isso um
+    clique enquanto a ANTA respondia (ou falava) nao parava nada e ainda deixava
+    o gatilho armado — assim que o turno acabava, comecava uma gravacao fantasma.
+    """
+
+    def __init__(self, recorder, pipeline, notify=_notify, on_state=None,
+                 trigger=None) -> None:
         self.recorder = recorder
         self.pipeline = pipeline
         self.notify = notify
         self.on_state = on_state  # None no daemon CLI -> emit() vira no-op
-        self.on = False
+        self.trigger = trigger if trigger is not None else threading.Event()
+        self.on = False           # gravando
+        self.busy = False         # pipeline rodando (transcreve/decide/executa/fala)
+        self.suspended = False    # memoria desalocada: ignora gatilhos ate carregar
+
+    # --- entrada unica dos gatilhos (thread-safe) ---
+    def request(self) -> None:
+        """Gatilho apertado. Suspenso -> so lembra; respondendo -> para; senao grava."""
+        if self.suspended:
+            self.notify("memoria desalocada — carregue de novo para usar a ANTA.")
+            emit(self.on_state, State.DESCARREGADO)
+            return
+        if self.busy:
+            self.cancel()
+            return
+        self.trigger.set()
+
+    def cancel(self) -> None:
+        """Para o que estiver em andamento: gravacao (descarta) ou turno/fala.
+
+        Chamada da thread da GUI enquanto a worker esta dentro de `toggle()` —
+        por isso so mexe em flags e no `sd.stop()` (via Pipeline.cancel)."""
+        if self.on:  # gravando: encerra e joga o audio fora
+            self.on = False
+            try:
+                self.recorder.stop()
+            except Exception:  # noqa: BLE001 - descartando mesmo; nao ha o que salvar
+                pass
+            self.notify("gravacao descartada.")
+            emit(self.on_state, State.PRONTO)
+            return
+        cancel = getattr(self.pipeline, "cancel", None)
+        if callable(cancel):
+            cancel()
+
+    def suspend(self) -> None:
+        """Desalocar memoria: para o que houver e passa a ignorar os gatilhos."""
+        self.cancel()
+        self.suspended = True
+        self.trigger.clear()  # descarta gatilho ja enfileirado
+
+    def resume(self) -> None:
+        self.suspended = False
 
     def toggle(self) -> None:
+        if self.suspended and not self.on:
+            # corrida: o gatilho ja tinha sido consumido quando o unload chegou.
+            # Abrir o microfone agora contrariaria o "desalocar" que acabou de rodar.
+            emit(self.on_state, State.DESCARREGADO)
+            return
         if not self.on:
             try:
                 self.recorder.start()
@@ -100,6 +155,7 @@ class Session:
             return
         self.notify("processando...")
         emit(self.on_state, State.PROCESSANDO)
+        self.busy = True  # a partir daqui o gatilho vira "parar", nao "gravar"
         try:
             feedback = self.pipeline.run(audio, on_progress=self.notify, on_state=self.on_state)
         except Exception as e:  # noqa: BLE001
@@ -112,12 +168,43 @@ class Session:
             # HUD mostra o erro e FICA nele ate a proxima fala (nao sobrescreve com pronto).
             emit(self.on_state, State.ERRO, text=short)
             return
+        finally:
+            self.busy = False
+        if self.suspended:  # desalocou no meio do turno: nao anuncia "pronto"
+            emit(self.on_state, State.DESCARREGADO)
+            return
         self.notify(feedback)
         # o loop ja volta a esperar o atalho quando toggle() retorna, mas nada
         # dizia isso: o usuario ficava sem saber se a ANTA morreu ou esta pronta.
         self.notify("pronto — aperte o atalho para falar de novo.")
         # PRONTO carrega a RESPOSTA -> o HUD exibe o texto (antes so ia pro log/voz).
         emit(self.on_state, State.PRONTO, text=feedback)
+
+
+def install_sigusr1(session) -> None:
+    """SIGUSR1 (`anta toggle`) -> `session.request()`, via thread despachante.
+
+    O handler de sinal so seta um Event (regra do guia: nada pesado no handler);
+    quem roteia — e eventualmente chama `sd.stop()` pra cortar a fala — e uma
+    thread daemon normal. Sem essa indirecao, cancelar pelo atalho no Wayland
+    rodaria audio de dentro do signal handler."""
+    if not hasattr(signal, "SIGUSR1"):
+        return  # Windows: o atalho e capturado in-process
+    pulso = threading.Event()
+    signal.signal(signal.SIGUSR1, lambda *_: pulso.set())
+
+    def _pump() -> None:
+        while True:
+            pulso.wait()
+            pulso.clear()
+            try:
+                session.request()
+            except Exception:  # noqa: BLE001 - um gatilho ruim nao mata o despachante
+                import traceback
+
+                traceback.print_exc()
+
+    threading.Thread(target=_pump, daemon=True).start()
 
 
 def run() -> None:
@@ -131,6 +218,22 @@ def run() -> None:
     families = load_families()
     family = cfg.family_or_default(families)
     mode = cfg.mode_or_default(family.modes)
+
+    # Este e o modo HEADLESS: carrega o Whisper e fixa o LLM na VRAM sem janela, sem
+    # bandeja e (no build empacotado) sem console. Se o HUD existe, o item de login
+    # nao deveria apontar pra ca — era assim ate a v0.4.3, e do lado de fora a ANTA
+    # sumia: nada na tela, nada na bandeja, so a memoria ocupada.
+    try:
+        from anta.platform.hotkey import default_command, hud_available, repair_autostart
+
+        if hud_available():
+            corrigido = repair_autostart()
+            if corrigido:
+                _notify(corrigido)
+            _notify(f"modo headless (sem janela e sem bandeja). Para a interface: "
+                    f"{default_command()} app")
+    except Exception:  # noqa: BLE001 - diagnostico nunca derruba o boot
+        pass
 
     _notify(f"iniciando {family.label} / modo '{mode.label}' — carregando modelos...")
     pipeline = Pipeline(
@@ -149,7 +252,7 @@ def run() -> None:
             _notify(f"aviso: {aviso}")
 
     recorder = Recorder(cfg.mic_device)
-    session = Session(recorder, pipeline, _notify)
+    session = Session(recorder, pipeline, _notify, trigger=_trigger)
 
     # pidfile para o `anta toggle` achar este processo
     pid_path = _pidfile()
@@ -157,8 +260,7 @@ def run() -> None:
     pid_path.write_text(str(os.getpid()), encoding="utf-8")
 
     # SIGUSR1 -> dispara o toggle (Wayland/manual e universal em POSIX)
-    if hasattr(signal, "SIGUSR1"):
-        signal.signal(signal.SIGUSR1, lambda *_: _trigger.set())
+    install_sigusr1(session)
 
     env = detect()
     listener = None
@@ -168,7 +270,7 @@ def run() -> None:
             from pynput import keyboard
 
             listener = keyboard.GlobalHotKeys(
-                {_to_pynput_hotkey(cfg.hotkey): _trigger.set}
+                {_to_pynput_hotkey(cfg.hotkey): session.request}
             )
             listener.start()
             _notify(f"ouvindo atalho {cfg.hotkey}. Fale apos apertar.")

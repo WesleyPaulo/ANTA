@@ -13,6 +13,7 @@ playback usa o MESMO backend de audio da captura (sounddevice).
 from __future__ import annotations
 
 import shutil
+import threading
 import urllib.request
 from pathlib import Path
 
@@ -177,12 +178,44 @@ def _tts_warn(msg: str, *, exc: bool = False) -> None:
         traceback.print_exc()
 
 
+# Interrupcao da fala (botao "Parar" do HUD / mesma tecla do atalho). Modulo-nivel
+# porque `speak()` e chamada la no fundo (handler -> executor -> pipeline) e quem
+# cancela esta noutra thread (a GUI). O `Pipeline.run` chama `reset()` no inicio de
+# cada turno; `Pipeline.cancel` chama `stop()`.
+_CANCEL = threading.Event()
+
+
+def stop() -> None:
+    """Interrompe a fala em andamento e marca o turno como cancelado.
+
+    Duas metades, ambas necessarias: `sd.stop()` corta o audio que JA esta tocando
+    (o `sd.wait()` do `_play` retorna na hora), e o Event impede que uma sintese
+    ainda em curso comece a tocar depois — sem ele, cancelar durante o Piper so
+    adiava a fala em vez de mata-la."""
+    _CANCEL.set()
+    try:
+        import sounddevice as sd
+
+        sd.stop()
+    except Exception:  # noqa: BLE001 - sem audio/sounddevice: o Event ja basta
+        pass
+
+
+def reset() -> None:
+    """Limpa a marca de cancelamento (inicio de um novo turno)."""
+    _CANCEL.clear()
+
+
+def cancelled() -> bool:
+    return _CANCEL.is_set()
+
+
 def speak(texto: str, voice_path: str | Path | None = None,
           output_device: str | None = None) -> None:
     """TTS best-effort: sintetiza `texto` com Piper e reproduz. No-op se o piper
     nao estiver instalado ou a voz nao existir — mas LOGA o motivo (o handler nunca
-    cai, mas a falha nao fica silenciosa)."""
-    if not texto:
+    cai, mas a falha nao fica silenciosa). No-op tambem se o turno foi cancelado."""
+    if not texto or cancelled():
         return
     voice = _resolve_voice(voice_path)
     if not voice.exists():
@@ -207,7 +240,7 @@ def _synthesize(texto: str, voice: Path) -> tuple[bytes, int]:
 
 def _play(pcm: bytes, sample_rate: int, output_device: str | None = None) -> None:
     """Reproduz PCM 16-bit mono cru pelo sounddevice (backend de audio da captura)."""
-    if not pcm:
+    if not pcm or cancelled():  # cancelou durante a sintese: nao comeca a tocar
         return
     try:
         import numpy as np

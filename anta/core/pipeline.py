@@ -9,6 +9,7 @@ sinaliza em decisao.memoria.
 """
 from __future__ import annotations
 
+import threading
 from collections import deque
 
 from anta.actions.executor import ExecContext, execute
@@ -20,6 +21,7 @@ from anta.core.states import State, emit
 from anta.core.stt import Transcriber
 
 HISTORY_TURNS = 5  # janela de conversa (RAM); cap curto p/ nao estourar contexto do 4B
+CANCELADO = "Parado."  # feedback quando o usuario interrompe o turno
 
 
 class Pipeline:
@@ -61,6 +63,7 @@ class Pipeline:
                 q, engine=web_engine, searxng_url=web_searxng_url)
             self.ctx.answer_web = self.brain.answer_web
         self._history: deque[tuple[str, str]] = deque(maxlen=HISTORY_TURNS)
+        self._cancel = threading.Event()
 
     def warm(self) -> str | None:
         """Carrega o Whisper e fixa o LLM na VRAM no boot para nao pagar o custo
@@ -85,10 +88,27 @@ class Pipeline:
 
         threading.Thread(target=_job, daemon=True).start()
 
+    def cancel(self) -> None:
+        """Interrompe o turno em andamento (botao 'Parar' do HUD, atalho, unload).
+
+        Cancelamento COOPERATIVO: as chamadas bloqueantes (Whisper, LLM) nao sao
+        interrompiveis no meio, entao a flag e checada nas fronteiras de etapa e o
+        que ainda nao aconteceu simplesmente nao acontece — nada de acao executada
+        depois do 'Parar'. A fala, essa sim, morre na hora (tts.stop corta o audio)."""
+        self._cancel.set()
+        from anta.core import tts  # lazy: nao puxa audio em quem nunca fala
+
+        tts.stop()
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancel.is_set()
+
     def unload(self) -> str | None:
         """Contraparte de warm(): solta o LLM da VRAM e larga os modelos de CPU
-        (STT/embedding) — o botao 'descarregar modelo' da GUI libera RAM/VRAM sem
+        (STT/embedding) — o botao 'desalocar memoria' da GUI libera RAM/VRAM sem
         fechar o app. Tudo recarrega lazy no proximo uso. Devolve o aviso do Brain."""
+        self.cancel()  # nao adianta liberar memoria com uma fala/turno em curso
         aviso = self.brain.unload()
         self.transcriber._model = None  # o load() do Whisper e lazy: recarrega sozinho
         if self.rag is not None:
@@ -108,6 +128,7 @@ class Pipeline:
         `on_state(state, **payload)` (opcional) recebe os estados TIPADOS p/ a GUI (ver
         anta.core.states). None no daemon CLI -> no-op, comportamento identico.
         """
+        self._reset_cancel()
         segundos = len(audio) / SAMPLE_RATE
         if segundos < MIN_SECONDS:
             emit(on_state, State.ERRO, code="mic",
@@ -125,15 +146,23 @@ class Pipeline:
             # "nao ouviu" -> a GUI mostra o CTA de verificar o microfone (guia §5).
             emit(on_state, State.ERRO, code="mic", text=msg)
             return msg
+        if self.cancelled:
+            return CANCELADO
         texto = self.transcriber.transcribe(audio)
         if not texto:
             emit(on_state, State.ERRO, code="stt", text="Nada foi transcrito.")
             return "Nao entendi — nada foi transcrito."
         if on_progress is not None:
             on_progress(f'ouvi: "{texto}"')
+        if self.cancelled:
+            return CANCELADO
         decisao = self.brain.decide(texto, list(self._history))
         if on_progress is not None:
             on_progress(f"acao: {self._rotulo(decisao)}")
+        # Parar ANTES de executar: cancelar tem que impedir o efeito colateral (criar
+        # nota, abrir app), nao so calar a voz depois que a acao ja aconteceu.
+        if self.cancelled:
+            return CANCELADO
         # RESPONDENDO: o modelo decidiu; agora executa/fala (o TTS bloqueia aqui dentro).
         # Sem texto: a RESPOSTA vai no PRONTO (via Session), pra o HUD exibi-la.
         emit(on_state, State.RESPONDENDO)
@@ -149,6 +178,17 @@ class Pipeline:
                 pass
         self._history.append((texto, self._rotulo(decisao)))
         return feedback
+
+    def _reset_cancel(self) -> None:
+        """Zera a marca de cancelamento no inicio do turno (aqui e no modulo de TTS,
+        que tem a propria — `speak` roda longe daqui, no fundo do executor)."""
+        self._cancel.clear()
+        try:
+            from anta.core import tts
+
+            tts.reset()
+        except Exception:  # noqa: BLE001 - sem o modulo de TTS o turno segue igual
+            pass
 
     @staticmethod
     def _rotulo(decisao) -> str:

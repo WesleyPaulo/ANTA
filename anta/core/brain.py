@@ -161,7 +161,7 @@ class Brain:
 
     def unload(self) -> str | None:
         """Solta o modelo da VRAM (keep_alive:0 no endpoint nativo). Contraparte de
-        warm(): o botao "descarregar modelo" da GUI libera a VRAM sem fechar o app.
+        warm(): o botao "desalocar memoria" da GUI libera a VRAM sem fechar o app.
         Best-effort: None se ok, senao uma mensagem. 404 = ja nao estava carregado."""
         import urllib.error
 

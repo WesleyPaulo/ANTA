@@ -1,15 +1,18 @@
 """Testes do Pipeline com fakes (sem STT/LLM/RAG reais): foca no wiring novo da v0.3
 — canal automatico de memoria, guard anti-duplicata do Lembrar e a janela de conversa."""
 import tempfile
+import threading
 import unittest
 from collections import deque
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 
 from anta.actions.schema import Decisao, Lembrar, Responder
+from anta.core import tts
 from anta.core.capture import SAMPLE_RATE
-from anta.core.pipeline import Pipeline
+from anta.core.pipeline import CANCELADO, Pipeline
 
 # O Pipeline rejeita gravacao curta demais E silencio (o Whisper alucina nos dois casos),
 # entao os fakes precisam de tamanho E de nivel de sinal.
@@ -187,6 +190,50 @@ class PipelineTest(unittest.TestCase):
         p = self._pipeline("oi", Decisao(escolha=Responder(texto="ok")))
         self.assertEqual(p.run(_FALA), "ok")  # sem callback, segue igual
 
+    # --- v0.4.4: botao "Parar" (cancelamento cooperativo) ---
+    def test_cancelar_durante_o_stt_nao_chega_no_llm(self):
+        # 'Parar' apertado enquanto o Whisper roda: a transcricao termina (chamada
+        # bloqueante), mas o LLM nem e consultado.
+        p = self._pipeline("ja era", Decisao(escolha=Responder(texto="ok")))
+        p.transcriber.transcribe = lambda a: (p.cancel(), "ja era")[1]
+        p.brain.decide = lambda *a, **k: self.fail("nao devia decidir")
+        self.assertEqual(p.run(_FALA), CANCELADO)
+        self.assertEqual(len(p._history), 0)  # turno cancelado nao vira conversa
+        tts.reset()
+
+    def test_cancelar_durante_o_decide_nao_executa_a_acao(self):
+        """O ponto do 'Parar': impedir o EFEITO (criar nota, abrir app), nao so calar
+        a voz depois que a acao ja aconteceu."""
+        dec = Decisao(escolha=Lembrar(fato="isso nao devia ser gravado"))
+        p = self._pipeline("lembre disso", dec)
+        p.brain.decide = lambda texto, history=None: (p.cancel(), dec)[1]
+        self.assertEqual(p.run(_FALA), CANCELADO)
+        self.assertEqual(self._memoria_notas(), [])  # nada foi escrito
+
+    def test_cancelar_para_a_fala_do_tts(self):
+        p = self._pipeline("oi", Decisao(escolha=Responder(texto="ok")))
+        with mock.patch("anta.core.tts.stop") as stop:
+            p.cancel()
+        stop.assert_called_once()
+        self.assertTrue(p.cancelled)
+
+    def test_novo_turno_limpa_o_cancelamento(self):
+        p = self._pipeline("oi", Decisao(escolha=Responder(texto="ok")))
+        p.cancel()
+        try:
+            self.assertEqual(p.run(_FALA), "ok")   # o turno seguinte roda normal
+            self.assertFalse(p.cancelled)
+        finally:
+            tts.reset()
+
+    def test_unload_cancela_o_que_estiver_rodando(self):
+        # desalocar memoria com uma fala no ar tem que calar a fala, nao esperar por ela
+        p = self._pipeline("oi", Decisao(escolha=Responder(texto="ok")))
+        with mock.patch("anta.core.tts.stop") as stop:
+            p.unload()
+        stop.assert_called_once()
+        self.assertTrue(p.cancelled)
+
 
     def test_rag_desligado_ainda_grava_memoria(self):
         dec = Decisao(escolha=Responder(texto="ok"), memoria="fato durável")
@@ -205,6 +252,7 @@ class SilencioTest(unittest.TestCase):
         p.brain = _FakeBrain(Decisao(escolha=Responder(texto="E ai! Tudo bem?")))
         p.rag = None
         p._history = deque(maxlen=5)
+        p._cancel = threading.Event()
         p.ctx = None
         return p
 

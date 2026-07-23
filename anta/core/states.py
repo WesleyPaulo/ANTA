@@ -17,7 +17,7 @@ class State(str, Enum):
     OUVINDO = "ouvindo"           # gravando
     PROCESSANDO = "processando"   # transcrevendo + decidindo
     RESPONDENDO = "respondendo"   # executando a acao / falando
-    DESCARREGADO = "descarregado" # modelo fora da VRAM (!= app fechado)
+    DESCARREGADO = "descarregado" # memoria desalocada + ANTA pausada (!= app fechado)
     ERRO = "erro"                 # falha (code diz qual: "mic", ...)
 
 

@@ -174,6 +174,113 @@ class TestSessionStates(unittest.TestCase):
         s.toggle()  # nao pode levantar
 
 
+class _FakePipelineCancelavel(_FakePipeline):
+    """Pipeline que registra o cancel() e roda um callback no meio do turno —
+    e assim que a GUI chega: outra thread apertando 'Parar' com o run() em curso."""
+
+    def __init__(self, durante=None, **kw):
+        super().__init__(**kw)
+        self.cancelado = False
+        self._durante = durante
+
+    def cancel(self):
+        self.cancelado = True
+
+    def run(self, audio, on_progress=None, on_state=None):
+        if self._durante is not None:
+            self._durante()
+        return super().run(audio, on_progress=on_progress, on_state=on_state)
+
+
+class TestSessionRequest(unittest.TestCase):
+    """`request()` e a entrada UNICA dos gatilhos (atalho, SIGUSR1, botao, bandeja).
+
+    Regressao da v0.4.3: o gatilho so ARMAVA o Event. Apertar 'Falar' enquanto a
+    ANTA falava nao parava nada e ainda deixava o Event armado — o turno acabava e
+    comecava uma gravacao que ninguem pediu."""
+
+    def _sessao(self, pipe=None, rec=None):
+        msgs: list[str] = []
+        estados: list[str] = []
+        s = Session(rec or _FakeRecorder(audio="A"), pipe or _FakePipelineCancelavel(),
+                    notify=msgs.append, on_state=lambda st, **_: estados.append(st))
+        return s, msgs, estados
+
+    def test_ocioso_arma_o_gatilho(self):
+        s, _msgs, _e = self._sessao()
+        s.request()
+        self.assertTrue(s.trigger.is_set())
+
+    def test_durante_o_turno_cancela_em_vez_de_enfileirar(self):
+        pipe = _FakePipelineCancelavel()
+        s, _msgs, _e = self._sessao(pipe)
+        pipe._durante = s.request        # 'Parar' apertado no meio do run()
+        s.toggle()                       # grava
+        s.toggle()                       # encerra -> roda o pipeline (e cancela dentro)
+        self.assertTrue(pipe.cancelado)
+        self.assertFalse(s.trigger.is_set())  # NAO ficou gravacao armada
+        self.assertFalse(s.busy)
+
+    def test_suspenso_ignora_o_gatilho(self):
+        s, msgs, estados = self._sessao()
+        s.suspend()
+        s.request()
+        self.assertFalse(s.trigger.is_set())
+        self.assertFalse(s.on)
+        self.assertIn("descarregado", estados)
+        self.assertTrue(any("desalocada" in m for m in msgs))
+
+    def test_resume_volta_a_funcionar(self):
+        s, _msgs, _e = self._sessao()
+        s.suspend()
+        s.resume()
+        s.request()
+        self.assertTrue(s.trigger.is_set())
+
+    def test_cancel_gravando_descarta_o_audio(self):
+        rec = _FakeRecorder(audio="A")
+        pipe = _FakePipelineCancelavel()
+        s, _msgs, estados = self._sessao(pipe, rec)
+        s.toggle()                       # gravando
+        s.cancel()
+        self.assertFalse(s.on)
+        self.assertTrue(rec.stopped)
+        self.assertIsNone(pipe.received)  # o audio nao virou turno
+        self.assertEqual(estados[-1], "pronto")
+
+    def test_suspender_no_meio_do_turno_termina_em_descarregado(self):
+        # desalocar memoria enquanto responde: o HUD nao pode voltar pra 'pronto'
+        pipe = _FakePipelineCancelavel()
+        s, _msgs, estados = self._sessao(pipe)
+        pipe._durante = s.suspend
+        s.toggle()
+        s.toggle()
+        self.assertEqual(estados[-1], "descarregado")
+
+    def test_toggle_suspenso_nao_abre_o_microfone(self):
+        # corrida: o gatilho foi consumido antes do unload chegar
+        rec = _FakeRecorder()
+        s, _msgs, estados = self._sessao(rec=rec)
+        s.suspend()
+        s.toggle()
+        self.assertFalse(rec.started)
+        self.assertEqual(estados[-1], "descarregado")
+
+    def test_pipeline_sem_cancel_nao_quebra(self):
+        # fakes antigos (e o daemon CLI com pipelines injetados) nao tem cancel()
+        s, _msgs, _e = self._sessao(_FakePipeline())
+        s.busy = True
+        s.cancel()  # nao levanta
+
+    def test_trigger_injetado_e_o_mesmo_do_loop(self):
+        import threading
+
+        ev = threading.Event()
+        s = Session(_FakeRecorder(), _FakePipeline(), lambda *_: None, trigger=ev)
+        s.request()
+        self.assertTrue(ev.is_set())
+
+
 class TestShortErr(unittest.TestCase):
     def test_curto_passa_inteiro(self):
         self.assertEqual(_short_err(ValueError("falhou feio")), "falhou feio")
