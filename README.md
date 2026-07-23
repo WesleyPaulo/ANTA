@@ -38,6 +38,17 @@ comando de shell. `abrir_app` só aceita apps de uma whitelist. Segurança por c
 
 ---
 
+## Requisitos
+
+- **[Ollama](https://ollama.com)** — o motor que roda o modelo de linguagem. É a **peça
+  obrigatória** que a ANTA **não** embute: sem ele, o cérebro não sobe e nenhuma fala vira
+  ação. O instalador/Configurador detecta se ele está presente e **oferece instalar**, mas
+  ele precisa existir na máquina. (O download do modelo em si também passa pelo Ollama.)
+- **GPU NVIDIA** recomendada — o LLM roda nela. Sem NVIDIA, só o modo mais leve fica
+  liberado e o LLM cai na CPU (funciona, porém mais lento).
+- **Windows 10/11** ou **Linux**. **macOS não é suportado** (o gate de VRAM assume NVIDIA).
+- **~2–8 GB de disco** para o modelo, conforme o modo escolhido.
+
 ## Como baixar e instalar
 
 ### Opção 1 — Instalador pronto (recomendado, sem Python/Node)
@@ -68,10 +79,6 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1  # Windows
 Isso abre a **TUI** (instalador de terminal). Se quiser a janela gráfica em vez do
 terminal, veja o Configurador (`anta config`) em **[docs/instalacao.md](docs/instalacao.md)**
 — o passo a passo completo por SO, incluindo os pré-requisitos da GUI (Node + WebKit).
-
-> **Hardware:** uma **GPU NVIDIA** é recomendada (o LLM roda nela). Sem NVIDIA, só o
-> modo mais leve fica liberado e o LLM cai na CPU (mais lento). **macOS** não é suportado
-> hoje — o gate de VRAM assume NVIDIA.
 
 ---
 
