@@ -2,169 +2,207 @@
 
 > **ANTA** = Assistente de Notas, Textos e Ações. Pacote Python: `anta`.
 
-Assistente pessoal **100% local e offline**. Voce aperta um atalho, fala, e ele
-transcreve, entende a intencao e executa uma acao segura (criar nota, gerar
-documento, adicionar tarefa, abrir app). Nada de nuvem, nada de assinatura,
-nenhum audio sai da maquina.
+Um assistente pessoal que roda **100% na sua máquina** — sem nuvem, sem conta, sem
+assinatura. Você aperta um atalho, fala em português, e a ANTA transcreve, entende o
+que você quis e **faz** a coisa: cria uma nota, gera um documento, adiciona uma tarefa,
+abre um app, responde uma pergunta. **Nenhum áudio sai do computador.**
 
-**Novo na v0.3 — memoria + busca (RAG) + resumos:** a ANTA lembra fatos duraveis sobre
-voce ("lembre que prefiro docx", ou automaticamente na conversa), responde perguntas
-sobre as suas proprias notas ("o que anotei sobre o projeto?") via busca semantica no
-vault, e faz resumos do que voce produziu ("resumo da semana" -> salvo em `resumos/`). O
-embedding roda **na CPU** — a VRAM segue exclusiva do LLM. Os prompts (persona/tom/regras)
-sao editaveis em `prompts.toml`, sem tocar no codigo. Ha tambem uma **busca na web opt-in**
-(`web = true`, desligada por padrao pra manter o offline) que responde citando as fontes.
+Ela também **lembra** ("lembre que eu prefiro docx"), **responde sobre as suas próprias
+notas** ("o que eu anotei sobre o projeto?") e **resume** o que você produziu na semana —
+tudo lendo só os seus arquivos, localmente.
+
+Por que local? Porque o que você dita — ideias, tarefas, nomes, contexto de trabalho — é
+seu. A ANTA foi desenhada em torno de uma restrição real: rodar bem numa **GPU de 8GB**,
+sem mandar nada pra fora.
+
+---
+
+## O que ela faz (as ações)
+
+Toda fala vira **uma** ação. É o LLM que decide qual, e o efeito acontece na sua máquina:
+
+| Diga algo como… | A ANTA faz |
+|---|---|
+| *"Cria uma nota chamada Ideias: modo offline e instalador simples"* | escreve um `.md` no seu vault |
+| *"Cria um documento em pdf chamado Proposta com o texto…"* | gera o `.md` e converte pra `docx`/`pdf` (pandoc) |
+| *"Adiciona tarefa comprar café até sexta"* | anexa um checkbox no `tarefas.md` |
+| *"Abre o obsidian"* / *"abre o navegador"* | abre um app da **whitelist** (nunca um comando arbitrário) |
+| *"Como se escreve 'apprentice' em inglês?"* | responde (e fala, se o TTS estiver ligado) |
+| *"Lembre que meu chefe se chama Ricardo"* | grava um fato durável na memória |
+| *"O que eu anotei sobre o projeto X?"* | busca semântica nas suas notas e responde |
+| *"Resumo da semana"* | varre o que você produziu e salva um resumo |
+| *"Pesquisa na web as novidades de Y"* | busca na internet e responde citando as fontes *(opt-in, desligado por padrão)* |
+
+O conjunto de ações é **fechado**: o LLM escolhe uma da lista, ele **nunca** gera um
+comando de shell. `abrir_app` só aceita apps de uma whitelist. Segurança por construção.
+
+---
+
+## Como baixar e instalar
+
+### Opção 1 — Instalador pronto (recomendado, sem Python/Node)
+
+Um binário nativo que **já traz** a UI, o STT, o TTS e o RAG. Baixe o arquivo do seu
+sistema na página de **[Releases](https://github.com/WesleyPaulo/ANTA/releases/latest)**:
+
+- **Windows:** `ANTA-Setup.exe` — instala, cria o atalho e o item de inicialização.
+- **Linux:** `ANTA-x86_64.AppImage` — dê permissão de execução e rode.
+
+Na primeira vez abre o **Configurador** (uma janela): ele detecta seu hardware, você
+escolhe o modelo e o microfone, e ele baixa o que falta. A **única** coisa que não vem no
+pacote é o **[Ollama](https://ollama.com)** (o motor que roda o LLM) — mas o próprio
+Configurador detecta se ele está instalado e **oferece instalar** ali mesmo.
+
+### Opção 2 — A partir do código (Windows e Linux)
+
+Precisa de `git`. O script traz o resto (libs nativas, pandoc, Ollama, Python via
+[uv](https://docs.astral.sh/uv/)) e abre o instalador:
+
+```bash
+git clone https://github.com/WesleyPaulo/ANTA.git
+cd ANTA
+./install.sh                                             # Linux
+powershell -ExecutionPolicy Bypass -File .\install.ps1  # Windows
+```
+
+Isso abre a **TUI** (instalador de terminal). Se quiser a janela gráfica em vez do
+terminal, veja o Configurador (`anta config`) em **[docs/instalacao.md](docs/instalacao.md)**
+— o passo a passo completo por SO, incluindo os pré-requisitos da GUI (Node + WebKit).
+
+> **Hardware:** uma **GPU NVIDIA** é recomendada (o LLM roda nela). Sem NVIDIA, só o
+> modo mais leve fica liberado e o LLM cai na CPU (mais lento). **macOS** não é suportado
+> hoje — o gate de VRAM assume NVIDIA.
+
+---
 
 ## Como funciona
 
+O uso é **push-to-talk**: aperte o atalho (`ctrl+alt+space`), fale, aperte de novo pra
+encerrar. A ANTA processa e responde — na tela e, opcionalmente, por voz.
+
 ```
-atalho (toggle) → microfone → faster-whisper (CPU) → LLM via Ollama (GPU)
-                → acao estruturada (Pydantic) → executor → feedback
-```
-
-Decisao de arquitetura central: **STT na CPU, LLM na GPU.** Em placas de 8GB,
-rodar Whisper e o modelo de linguagem juntos na VRAM estouraria — separar
-mantem a GPU inteira para o LLM.
-
-## Familias e modos por VRAM
-
-No instalador voce escolhe uma **familia** de modelos open-source e depois um **modo** (tier)
-por VRAM. Tudo declarativo em `modes.yaml` (tiers compartilhados × familias). O tier define o
-gate de VRAM + o STT; a familia troca o modelo (LLM).
-
-| Tier | Gate | STT | Qwen3 | Gemma | DeepSeek-R1 |
-|------|------|-----|-------|-------|-------------|
-| Batata | 1GB | base | qwen3:0.6b | gemma3:1b | — |
-| Ultra Leve | 2GB | small | qwen3:1.7b | gemma2:2b | deepseek-r1:1.5b |
-| Leve | 4GB | turbo | qwen3:4b-instruct | gemma3:4b | deepseek-r1:1.5b |
-| Normal | 6GB | large-v3 | qwen3:4b-instruct | gemma3:4b | deepseek-r1:7b |
-| Pesado | 8GB | large-v3 | qwen3:8b | gemma2:9b | deepseek-r1:8b |
-| Muito Pesado | 10GB | large-v3 | qwen3:8b | gemma3:12b | deepseek-r1:14b |
-| Ultra | 12GB | large-v3 | qwen3:14b | gemma3:12b | deepseek-r1:14b |
-
-- **Gate** = VRAM minima que o instalador exige; o `vram_real` (consumo estimado do LLM) fica
-  abaixo, com folga. STT/embedder rodam na CPU e nao contam (a VRAM e so do LLM).
-- **Saida estruturada por gramatica** (`structured: "json_schema"`): o schema das acoes vai no
-  `response_format` e o Ollama compila uma gramatica GBNF no llama.cpp — o modelo nao consegue
-  responder fora do schema. Tool-calling **nao** serve aqui: o Ollama ignora `tool_choice`, entao
-  a ferramenta nunca e obrigatoria e o modelo simplesmente conversa.
-- **Raciocinio desligado** no roteamento: o Ollama liga o "thinking" sozinho em todo modelo que
-  sabe pensar, e isso quebra o tool-calling (o modelo escreve a chamada como texto). A ANTA pede
-  `reasoning_effort: "none"`. Nos tiers leve/normal do Qwen3 usamos `qwen3:4b-instruct` porque o
-  tag `qwen3:4b` aponta pro Thinking-2507, que pensa sempre — nao ha como desligar.
-- **DeepSeek-R1 sao modelos de raciocinio** (pensam antes de responder): mais lentos e menos
-  confiaveis pro roteamento de comandos — melhores pra respostas/RAG. Sem `batata` (nada cabe em 1GB).
-- Todos sao **open-source, gratuitos e locais** (via Ollama). Adicionar familia/tier = um bloco
-  no `modes.yaml`. O instalador nao muda.
-
-## Stack
-
-- **Instalador**: Python + [Textual](https://textual.textualize.io) — TUI que
-  roda identica em Windows e Linux; parece um painel mas vive no terminal.
-- **Deteccao de VRAM**: `nvidia-smi` (principal) com fallback `pynvml`.
-- **Captura de audio**: `sounddevice` — microfone, cross-platform (MVP so mic).
-- **STT**: `faster-whisper` (CTranslate2), int8 na CPU.
-- **LLM**: [Ollama](https://ollama.com) servindo a API compativel com OpenAI.
-- **Saida estruturada**: `instructor` + `pydantic` (conjunto fechado de acoes).
-- **Documentos**: `pandoc` (Markdown → docx/pdf).
-- **Voz (TTS)**: `piper-tts` — voz PT-BR local, reproduzida pelo `sounddevice`
-  (opcional, so quando `tts = true`).
-- **Memoria + RAG**: `fastembed` (onnxruntime) — embedding multilingue **na CPU**;
-  store por cosseno em `numpy` (sem faiss/chroma). Opcional, so quando `rag = true`.
-- **Busca na web (opt-in)**: `ddgs` (DuckDuckGo, keyless) ou SearXNG (JSON, stdlib).
-  Desligada por padrao (`web = false`) pra preservar o offline; so quando `web = true`.
-- **Atalho global**: automatico no Windows e Linux/X11; no Wayland/KDE o
-  instalador tenta configurar via compositor, com fallback manual documentado.
-
-Externos (nao via pip): **Ollama** e **pandoc**.
-
-## Escopo do MVP (v0.1)
-
-- **So microfone** (sem audio do sistema / reuniao).
-- **Linux** e o alvo testado. **Windows** e cross-platform no codigo (deteccao,
-  VRAM via NVIDIA, atalho, config em %APPDATA%) e deve rodar em Windows+NVIDIA,
-  mas ainda nao foi testado. **macOS** nao e suportado: o gating por VRAM assume
-  GPU NVIDIA e bloqueia o instalador em Apple Silicon.
-- Atalho: instrucao correta por SO; automacao onde e confiavel, doc onde nao e.
-
-## Instalacao (usuario)
-
-**Passo a passo completo por SO (TUI, GUI e exe empacotado): [docs/instalacao.md](docs/instalacao.md).**
-
-Resumo — um comando traz os pre-requisitos (libs nativas, pandoc, Ollama), prepara o
-ambiente com [uv](https://docs.astral.sh/uv/) e abre o instalador TUI:
-
-```bash
-./install.sh                                              # Linux e macOS
-powershell -ExecutionPolicy Bypass -File .\install.ps1    # Windows
+atalho → microfone → faster-whisper (CPU) → LLM via Ollama (GPU)
+       → ação estruturada (Pydantic) → executor → resposta (tela + voz)
 ```
 
-**Interface grafica (novo):** ha um **Configurador** (`anta config`) e um **App de execucao**
-com HUD na bandeja (`anta app`), em Vue 3 + PyWebview (mesmo processo Python). Precisam do
-front buildado (`cd frontend && npm ci && npm run build`) e, no Linux, do WebKit do pywebview.
-A TUI continua como **fallback headless**. Detalhes em [docs/instalacao.md](docs/instalacao.md).
+A decisão de arquitetura central é **STT na CPU, LLM na GPU**. Numa placa de 8GB, rodar
+o Whisper (transcrição) e o modelo de linguagem juntos na VRAM estouraria — então o
+Whisper e o embedder de busca ficam na CPU, e a **VRAM inteira é do LLM**. A ANTA fica
+residente (modelo quente na memória) esperando o atalho, com um ícone na bandeja que
+mostra o estado (pronta / ouvindo / respondendo) e um botão pra **desalocar a memória**
+quando você quiser a GPU de volta.
 
-## Instalacao (dev)
+### Escolha do modelo (família × modo)
+
+No instalador você escolhe uma **família** de modelos open-source e um **modo** por VRAM.
+Tudo é declarativo em [`modes.yaml`](modes.yaml):
+
+| Modo | VRAM mín. | STT | Qwen3 | Gemma | DeepSeek-R1 |
+|------|-----------|-----|-------|-------|-------------|
+| Batata | 1 GB | base | qwen3:0.6b | gemma3:1b | — |
+| Ultra Leve | 2 GB | small | qwen3:1.7b | gemma2:2b | deepseek-r1:1.5b |
+| Leve | 4 GB | turbo | qwen3:4b-instruct | gemma3:4b | deepseek-r1:1.5b |
+| Normal | 6 GB | large-v3 | qwen3:4b-instruct | gemma3:4b | deepseek-r1:7b |
+| Pesado | 8 GB | large-v3 | qwen3:8b | gemma2:9b | deepseek-r1:8b |
+| Muito Pesado | 10 GB | large-v3 | qwen3:8b | gemma3:12b | deepseek-r1:14b |
+| Ultra | 12 GB | large-v3 | qwen3:14b | gemma3:12b | deepseek-r1:14b |
+
+Todos os modelos são **open-source, gratuitos e locais** (via Ollama). O instalador pinta
+cada modo de verde/amarelo/vermelho conforme a sua VRAM, e bloqueia o que não cabe.
+
+### O que roda por baixo
+
+- **Captura de áudio:** `sounddevice` (só microfone — sem áudio do sistema, por ora).
+- **Transcrição (STT):** `faster-whisper`, int8, na CPU.
+- **Cérebro (LLM):** [Ollama](https://ollama.com) servindo a API compatível com OpenAI.
+- **Saída estruturada:** `instructor` + `pydantic` — o schema das ações vira uma gramática
+  no llama.cpp, então o modelo **não consegue** responder fora do conjunto de ações.
+- **Voz (TTS):** `piper-tts` — voz PT-BR local (opcional, `tts = true`).
+- **Memória + busca (RAG):** `fastembed` na CPU + busca por cosseno em `numpy` — lê só as
+  suas notas (opcional, `rag = true`).
+- **Busca na web (opt-in):** `ddgs` (DuckDuckGo) ou SearXNG — **desligada por padrão**
+  (`web = false`) pra preservar o offline.
+- **Documentos:** `pandoc` (Markdown → docx/pdf).
+- **Interface:** apps desktop em Vue 3 + PyWebview (Configurador e HUD), com uma TUI
+  (Textual) de fallback pra quem não quer a janela gráfica.
+
+Externos, não instalados via pip: **Ollama** e **pandoc**.
+
+---
+
+## Comandos
+
+| Comando | O que faz |
+|---|---|
+| `anta config` | **Configurador** (janela; wizard de configuração) |
+| `anta app` | **App de execução** — o HUD na bandeja (push-to-talk) |
+| `anta run` | Daemon **headless** (push-to-talk, sem janela) |
+| `anta` | Instalador **TUI** (terminal) — fallback |
+| `anta toggle` | Alterna a gravação (usado pelo atalho do SO no Wayland) |
+| `anta mic` | Diagnóstico do microfone (device + nível do sinal) |
+| `anta vozes` | Lista/instala vozes do TTS (Piper) |
+
+> **Por que existe o `anta mic`:** um microfone mudo é indistinguível de um "LLM burro"
+> pelo lado de fora — o Whisper **alucina** em cima do silêncio (devolve "E aí", "Obrigado"
+> — frases que ninguém falou) e o modelo responde a alucinação com confiança. O `anta mic`
+> mostra o pico do sinal, sem interpretação; e a ANTA recusa áudio silencioso em vez de
+> deixar o STT inventar.
+
+Configuração e estado ficam em `~/.config/anta/` (Linux) ou `%APPDATA%\anta\` (Windows):
+`config.toml`, `prompts.toml` (persona e regras **editáveis**), índice do RAG, vozes.
+
+---
+
+## Para desenvolvedores
 
 ```bash
 pip install -r requirements.txt
-pip install -e . --no-deps   # instala o pacote: `anta` roda de qualquer pasta
+pip install -e . --no-deps                        # `anta` roda de qualquer pasta
 cd frontend && npm ci && npm run build && cd ..   # front (para a GUI)
-anta                         # instalador TUI (fallback)  (ou: python -m anta)
-anta config                  # Configurador (GUI)
-anta app                     # App de execucao (HUD na bandeja)
-anta run                     # daemon headless (apos configurar)
-anta mic                     # diagnostico: qual mic foi resolvido + nivel do sinal
+
+anta config          # Configurador (GUI)      anta app   # HUD na bandeja
+anta run             # daemon headless          anta       # TUI (fallback)
+
+# testes
+.venv/bin/python -m unittest discover -s tests    # backend (Python)
+cd frontend && npm test                           # ponte (Vitest)
 ```
 
-O `anta mic` existe porque um microfone mudo e indistinguivel de um LLM burro pelo lado de
-fora: o Whisper **alucina** em cima do silencio (devolve "E ai", "Obrigado" — frases que
-ninguem falou), o modelo responde a alucinacao, e a culpa parece ser do modelo. O `anta mic`
-mostra o pico do sinal, sem interpretacao. O `anta run` tambem exibe `ouvi: "..."` a cada
-comando e recusa audio silencioso em vez de deixar o STT inventar.
+UI com hot reload: `cd frontend && npm run dev` e, noutro terminal, `ANTA_GUI_DEV=1 anta
+config`. Sem pywebview a UI roda no browser com dados de mock.
 
-O `-e .` importa: sem ele, `python -m anta` so funciona com o CWD na raiz do repo — e o
-autostart do login roda com outro CWD.
+A arquitetura e os invariantes (por que cada decisão existe) estão em
+**[CLAUDE.md](CLAUDE.md)**. Empacotamento em [packaging/README.md](packaging/README.md).
 
-## Estrutura
+### Estrutura
 
 ```
 anta/
-  installer/   TUI Textual (fallback) + deteccao de VRAM (hardware.py)
-  gui/         apps desktop (PyWebview): bridge_config/runtime · config_app · runtime_app
-               · assets · detection · downloads · state · tray · launcher
-  core/        capture · stt · brain · pipeline · config · states · rag · prompts · websearch
-  actions/     schema Pydantic · executor (fachada) · registry · apps (whitelist)
-    handlers/  um arquivo por acao (criar_nota, ..., consultar, resumir, buscar_web)
-  platform/    detect (SO/sessao) · hotkey (atalho por SO)
-frontend/      monorepo Vue 3 + Vite + Tailwind (bridge · ui · apps/configurador · apps/runtime)
-packaging/     PyInstaller (anta.spec) + instaladores (Inno/AppImage) + build.sh/ps1
-modes.yaml     manifesto dos modos
-docs/          instalacao · atalhos · windows · frontend-fases · validacao-nativa
+  installer/   TUI Textual (fallback) + detecção de VRAM
+  gui/         apps desktop (PyWebview): configurador · HUD · bandeja · bridge
+  core/        capture · stt · brain · pipeline · config · rag · prompts · tts · websearch
+  actions/     schema Pydantic · executor · registry · whitelist de apps
+    handlers/  um arquivo por ação (criar_nota … consultar, resumir, buscar_web)
+  platform/    detect (SO/sessão) · hotkey (atalho por SO) · singleton (instância única)
+frontend/      monorepo Vue 3 + Vite + Tailwind (configurador + runtime)
+packaging/     PyInstaller + instaladores (Inno/AppImage)
+modes.yaml     manifesto dos modelos por VRAM
+docs/          instalacao · atalhos · windows · validacao-nativa · casos-de-uso
 ```
 
-## Roadmap
+---
 
-- v0.1: MVP mic-only, Linux, instalador cross-platform, 3 modos.
-- v0.2: TTS por voz (Piper, PT-BR); automacao best-effort do atalho no
-  Wayland/KDE (com fallback manual); runtime Windows validado; correcoes
-  cross-platform (mic por nome, tags de modelo, keep-alive no boot).
-- v0.3 (atual): **memoria + RAG + resumos + prompts editaveis + busca web opt-in +
-  familias de modelos** — busca semantica nas notas (`consultar`), memoria automatica +
-  explicita (`lembrar`), resumos de atividade dia/semana/mes (`resumir`), busca na internet
-  opcional (`buscar_web`, `web=true`), continuidade de conversa na sessao; embedding na CPU
-  via `fastembed` (VRAM intacta); prompts em `prompts.toml` editavel; escolha de familia
-  (Qwen3/Gemma/DeepSeek) + modo por VRAM, com `structured` tools/json por familia.
-- v0.4: modo reuniao (audio do sistema via PipeWire/WASAPI).
+## Estado do projeto
 
-### TODO
+- **Windows:** validado ponta a ponta (v0.4.x) — instalador `.exe`, Configurador, HUD,
+  atalho, transcrição, resposta na tela e por voz.
+- **Linux:** alvo primário; a suíte de testes roda aqui. O loop de voz completo ainda não
+  foi exercitado em Linux nativo.
+- **macOS:** não suportado (o gate de VRAM assume NVIDIA).
 
-- **Busca academica (arXiv) como `web_engine`.** Motivo: pedir "os artigos mais importantes
-  sobre X" pelo DuckDuckGo devolve conteudo de blog/SEO (DataCamp, IBM, LinkedIn), nao
-  papers. O arXiv tem API publica e keyless — encaixa no mesmo contrato `search(query, ...)
-  -> [Result]` de `websearch.py`, entao e um bloco novo la e uma opcao a mais em
-  `web_engine`. Alternativa ja disponivel hoje: SearXNG com os engines academicos ligados.
+Roadmap e detalhes de cada versão em [docs/](docs/). Próximo grande item: **modo reunião**
+(áudio do sistema via PipeWire/WASAPI).
 
-## Licenca
+## Licença
 
 MIT.
