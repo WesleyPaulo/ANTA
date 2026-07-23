@@ -15,7 +15,7 @@ def handle(acao: CriarDocumento, ctx: ExecContext) -> str:
     if acao.formato == "md":
         return f"Documento criado: {md_path.name}"
     if shutil.which("pandoc") is None:
-        return f"Documento salvo em .md ({md_path.name}); pandoc nao encontrado para {acao.formato}."
+        return f"Documento salvo em .md ({md_path.name}); pandoc não encontrado para {acao.formato}."
     out_path = md_path.with_suffix(f".{acao.formato}")
     try:
         subprocess.run(["pandoc", str(md_path), "-o", str(out_path)],

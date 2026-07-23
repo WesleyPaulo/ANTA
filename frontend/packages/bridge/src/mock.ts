@@ -166,7 +166,7 @@ export async function callMock<T = unknown>(name: string, ...args: unknown[]): P
     case 'validate_hotkey': {
       const hk = String(args[0] ?? '')
       const valid = hk.includes('+') && !hk.endsWith('+')
-      return { valid, normalized: valid ? hk.toLowerCase() : '', msg: valid ? '' : 'Atalho invalido.' } as T
+      return { valid, normalized: valid ? hk.toLowerCase() : '', msg: valid ? '' : 'Atalho inválido.' } as T
     }
     case 'ollama_status':
       return { installed: true, running: true } as T

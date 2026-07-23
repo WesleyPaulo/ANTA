@@ -14,7 +14,7 @@ def handle(acao: BuscarWeb, ctx: ExecContext) -> str:
         return "Busca na web desativada. Ligue com web = true na config (rompe o offline)."
     resultados = ctx.web_search(acao.consulta)
     if not resultados:
-        return "Nao consegui buscar na web agora."
+        return "Não consegui buscar na web agora."
     from anta.core.websearch import format_context, sources
 
     contexto = format_context(resultados)

@@ -128,7 +128,7 @@ def main() -> None:
             listener = keyboard.GlobalHotKeys({_to_pynput_hotkey(cfg.hotkey): session.request})
             listener.start()
         except Exception as e:  # noqa: BLE001
-            _notify(f"nao consegui registrar {cfg.hotkey} in-process ({e}).")
+            _notify(f"não consegui registrar {cfg.hotkey} in-process ({e}).")
 
     stop = threading.Event()
 
@@ -170,7 +170,7 @@ def main() -> None:
     else:
         # Sem bandeja o X CONTINUA encerrando: esconder a janela sem icone nenhum
         # deixaria a ANTA invisivel de novo, que e exatamente o que queremos evitar.
-        _notify("bandeja indisponivel neste ambiente — a ANTA fica so na janela.")
+        _notify("bandeja indisponível neste ambiente — a ANTA fica só na janela.")
 
     try:
         webview.start()

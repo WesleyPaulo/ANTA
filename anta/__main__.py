@@ -94,7 +94,7 @@ class Session:
     def request(self) -> None:
         """Gatilho apertado. Suspenso -> so lembra; respondendo -> para; senao grava."""
         if self.suspended:
-            self.notify("memoria desalocada — carregue de novo para usar a ANTA.")
+            self.notify("memória desalocada — carregue de novo para usar a ANTA.")
             emit(self.on_state, State.DESCARREGADO)
             return
         if self.busy:
@@ -113,7 +113,7 @@ class Session:
                 self.recorder.stop()
             except Exception:  # noqa: BLE001 - descartando mesmo; nao ha o que salvar
                 pass
-            self.notify("gravacao descartada.")
+            self.notify("gravação descartada.")
             emit(self.on_state, State.PRONTO)
             return
         cancel = getattr(self.pipeline, "cancel", None)
@@ -142,7 +142,7 @@ class Session:
                 self.notify("gravando... (aperte de novo para encerrar)")
                 emit(self.on_state, State.OUVINDO)
             except Exception as e:  # noqa: BLE001
-                self.notify(f"nao consegui abrir o microfone: {e}")
+                self.notify(f"não consegui abrir o microfone: {e}")
                 emit(self.on_state, State.ERRO, code="mic", text=str(e))
             return
         # 2a pressao: encerra e roda o pipeline
@@ -150,7 +150,7 @@ class Session:
         try:
             audio = self.recorder.stop()
         except Exception as e:  # noqa: BLE001
-            self.notify(f"erro ao encerrar a gravacao: {e}")
+            self.notify(f"erro ao encerrar a gravação: {e}")
             emit(self.on_state, State.ERRO, text=str(e))
             return
         self.notify("processando...")
@@ -243,7 +243,7 @@ def run() -> None:
     trava = SingleInstance("runtime")
     if not trava.acquire():
         trava.signal_existing()  # se quem esta rodando for o HUD, ele aparece
-        _notify("a ANTA ja esta rodando (janela ou daemon). Nao vou subir outra.")
+        _notify("a ANTA já está rodando (janela ou daemon). Não vou subir outra.")
         sys.exit(1)
 
     _notify(f"iniciando {family.label} / modo '{mode.label}' — carregando modelos...")
@@ -284,9 +284,9 @@ def run() -> None:
                 {_to_pynput_hotkey(cfg.hotkey): session.request}
             )
             listener.start()
-            _notify(f"ouvindo atalho {cfg.hotkey}. Fale apos apertar.")
+            _notify(f"ouvindo atalho {cfg.hotkey}. Fale após apertar.")
         except Exception as e:  # noqa: BLE001
-            _notify(f"nao consegui registrar {cfg.hotkey} in-process ({e}). "
+            _notify(f"não consegui registrar {cfg.hotkey} in-process ({e}). "
                     f"Use: {toggle_cmd} (vincule ao atalho do SO).")
     else:
         _notify(instructions_for(env, toggle_cmd))

@@ -132,8 +132,8 @@ class Pipeline:
         segundos = len(audio) / SAMPLE_RATE
         if segundos < MIN_SECONDS:
             emit(on_state, State.ERRO, code="mic",
-                 text=f"Gravacao curta demais ({segundos:.1f}s).")
-            return f"Gravacao curta demais ({segundos:.1f}s) — nao deu tempo de falar."
+                 text=f"Gravação curta demais ({segundos:.1f}s).")
+            return f"Gravação curta demais ({segundos:.1f}s) — não deu tempo de falar."
         pico, rms = audio_level(audio)
         if on_progress is not None:
             on_progress(f"audio: {segundos:.1f}s, pico {pico:.3f}, rms {rms:.4f}")
@@ -141,7 +141,7 @@ class Pipeline:
             # NAO transcrever: o Whisper inventa frases em cima de silencio ("E ai",
             # "Obrigado") e o LLM responde a alucinacao com toda a confianca. O usuario
             # culpa o modelo por um problema de microfone. Diga a verdade.
-            msg = (f"O microfone nao captou audio (pico {pico:.3f} em {segundos:.1f}s). "
+            msg = (f"O microfone não captou áudio (pico {pico:.3f} em {segundos:.1f}s). "
                    f"Rode 'anta mic' para diagnosticar.")
             # "nao ouviu" -> a GUI mostra o CTA de verificar o microfone (guia §5).
             emit(on_state, State.ERRO, code="mic", text=msg)
@@ -151,7 +151,7 @@ class Pipeline:
         texto = self.transcriber.transcribe(audio)
         if not texto:
             emit(on_state, State.ERRO, code="stt", text="Nada foi transcrito.")
-            return "Nao entendi — nada foi transcrito."
+            return "Não entendi — nada foi transcrito."
         if on_progress is not None:
             on_progress(f'ouvi: "{texto}"')
         if self.cancelled:

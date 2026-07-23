@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Select rotulado para listas de devices (mic/saida) ou strings.
-// Aceita options como string[] ou {name}[]. Valor '' = "(padrao do sistema)".
+// Aceita options como string[] ou {name}[]. Valor '' = "(padrão do sistema)".
 const props = withDefaults(
   defineProps<{
     modelValue: string | null
@@ -8,7 +8,7 @@ const props = withDefaults(
     label?: string
     placeholder?: string
   }>(),
-  { placeholder: '(padrao do sistema)' },
+  { placeholder: '(padrão do sistema)' },
 )
 const emit = defineEmits<{ 'update:modelValue': [string | null] }>()
 

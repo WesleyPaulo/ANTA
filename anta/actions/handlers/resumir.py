@@ -17,7 +17,7 @@ def handle(acao: Resumir, ctx: ExecContext) -> str:
     now = datetime.now()
     material = gather_activity(ctx.vault, window_start(acao.periodo, now))
     if not material:
-        return f"Nao ha nada registrado no periodo ({acao.periodo})."
+        return f"Não há nada registrado no período ({acao.periodo})."
     resumo = ctx.summarize(acao.periodo, material) if ctx.summarize else material
     write_summary_note(ctx.vault, acao.periodo, now, resumo)  # salvo em resumos/ (indexado)
     if ctx.tts:

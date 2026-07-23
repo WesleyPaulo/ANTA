@@ -187,7 +187,7 @@ class TestExecutor(unittest.TestCase):
         ctx = ExecContext(vault=Path(self._tmp.name),
                           summarize=lambda p, m: chamou.append(1) or "x")
         msg = execute(_dec(Resumir(periodo="dia")), ctx)  # vault vazio
-        self.assertIn("Nao ha nada registrado", msg)
+        self.assertIn("Não há nada registrado", msg)
         self.assertEqual(chamou, [])
         self.assertFalse((Path(self._tmp.name) / "resumos").exists())
 
@@ -201,7 +201,7 @@ class TestExecutor(unittest.TestCase):
         ctx = ExecContext(vault=Path(self._tmp.name), web_search=lambda q: [],
                           answer=lambda p, c: chamou.append(1) or "x")
         msg = execute(_dec(BuscarWeb(consulta="nada")), ctx)
-        self.assertIn("Nao consegui buscar", msg)
+        self.assertIn("Não consegui buscar", msg)
         self.assertEqual(chamou, [])  # sem resultado => nem chama o LLM
 
     def test_buscar_web_sintetiza_com_fontes(self):

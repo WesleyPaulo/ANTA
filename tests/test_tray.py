@@ -174,9 +174,9 @@ class TestMenu(unittest.TestCase):
         self.fail(f"item nao encontrado: {prefixo}")
 
     def test_rotulo_de_memoria_inverte_quando_desalocado(self):
-        self.assertTrue(any(i.rotulo() == "Desalocar memoria" for i in self.itens))
+        self.assertTrue(any(i.rotulo() == "Desalocar memória" for i in self.itens))
         self.tray.on_state({"state": "descarregado"})
-        self.assertTrue(any(i.rotulo() == "Carregar memoria" for i in self.itens))
+        self.assertTrue(any(i.rotulo() == "Carregar memória" for i in self.itens))
 
     def test_falar_vira_parar_durante_a_resposta(self):
         self.assertEqual(self._item("falar").rotulo(), "Falar")

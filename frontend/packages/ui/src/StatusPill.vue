@@ -17,7 +17,7 @@ const STYLES: Record<Status, string> = {
 const DEFAULT_TEXT: Record<Status, string> = {
   verde: 'Roda',
   amarelo: 'Aperta',
-  vermelho: 'Nao roda',
+  vermelho: 'Não roda',
 }
 </script>
 

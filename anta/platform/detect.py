@@ -46,9 +46,9 @@ class Environment:
         fato interessa ali: como o atalho global vai funcionar."""
         if self.os == "linux":
             partes = [p for p in (self.session, self.desktop) if p and p != "unknown"]
-            return " · ".join(partes) or "sessao desconhecida"
+            return " · ".join(partes) or "sessão desconhecida"
         if self.captures_hotkey_in_process:
-            return "atalho global automatico"
+            return "atalho global automático"
         if self.hotkey_strategy == "compositor":
             return "atalho pelo sistema"
         return "atalho manual"

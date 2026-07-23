@@ -33,7 +33,7 @@ _ROTULOS = {
     "ouvindo": "ouvindo",
     "processando": "processando",
     "respondendo": "respondendo",
-    "descarregado": "memoria desalocada",
+    "descarregado": "memória desalocada",
     "erro": "erro (veja o anta.log)",
 }
 _PARANDO = {"processando", "respondendo"}  # nesses o gatilho vira "parar"
@@ -154,7 +154,7 @@ class Tray:
                 lambda _i: "Parar" if self._state in _PARANDO else "Falar",
                 self._falar, enabled=lambda _i: not desalocado()),
             pystray.MenuItem(
-                lambda _i: "Carregar memoria" if desalocado() else "Desalocar memoria",
+                lambda _i: "Carregar memória" if desalocado() else "Desalocar memória",
                 self._memoria),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Sair", self._quit),

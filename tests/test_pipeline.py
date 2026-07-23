@@ -163,7 +163,7 @@ class PipelineTest(unittest.TestCase):
     def test_transcricao_vazia_nao_registra_turno(self):
         p = self._pipeline("", Decisao(escolha=Responder(texto="ok")))
         fb = p.run(_FALA)
-        self.assertIn("Nao entendi", fb)
+        self.assertIn("Não entendi", fb)
         self.assertEqual(len(p._history), 0)
 
     def test_gravacao_curta_nem_chega_no_stt(self):
@@ -259,7 +259,7 @@ class SilencioTest(unittest.TestCase):
     def test_silencio_nao_chega_no_stt(self):
         p = self._pipeline("E ai")  # o que o Whisper alucinaria
         fb = p.run(_AUDIO)          # 1s de zeros
-        self.assertIn("nao captou audio", fb)
+        self.assertIn("não captou áudio", fb)
         self.assertEqual(len(p._history), 0)  # nao virou turno de conversa
 
     def test_mic_mudo_sugere_o_diagnostico(self):
@@ -268,11 +268,11 @@ class SilencioTest(unittest.TestCase):
     def test_ruido_de_sala_ainda_e_silencio(self):
         rng = np.random.default_rng(0)
         ruido = (rng.standard_normal(SAMPLE_RATE) * 0.002).astype(np.float32)
-        self.assertIn("nao captou audio", self._pipeline("Obrigado").run(ruido))
+        self.assertIn("não captou áudio", self._pipeline("Obrigado").run(ruido))
 
     def test_fala_passa_e_e_transcrita(self):
         p = self._pipeline("me fale sobre voce")
-        self.assertNotIn("nao captou", p.run(_FALA))
+        self.assertNotIn("não captou", p.run(_FALA))
         self.assertEqual(len(p._history), 1)
 
     def test_nivel_aparece_no_progresso(self):

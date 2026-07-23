@@ -44,7 +44,7 @@ class TestRotulos(unittest.TestCase):
 
     def test_windows_diz_como_o_atalho_funciona(self):
         e = Environment(os="windows", session="windows", desktop="", release="11")
-        self.assertEqual(e.detail, "atalho global automatico")
+        self.assertEqual(e.detail, "atalho global automático")
 
     def test_linux_encurta_o_kernel_e_mostra_sessao(self):
         e = Environment(os="linux", session="wayland", desktop="KDE",
