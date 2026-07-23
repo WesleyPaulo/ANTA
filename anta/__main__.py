@@ -235,6 +235,17 @@ def run() -> None:
     except Exception:  # noqa: BLE001 - diagnostico nunca derruba o boot
         pass
 
+    # Uma ANTA por vez — a MESMA trava do HUD ("runtime"): `anta run` e `anta app`
+    # sao o mesmo assistente com e sem janela. Dois deles = dois Whispers na RAM,
+    # dois preloads na VRAM e dois donos do mesmo pidfile.
+    from anta.platform.singleton import SingleInstance
+
+    trava = SingleInstance("runtime")
+    if not trava.acquire():
+        trava.signal_existing()  # se quem esta rodando for o HUD, ele aparece
+        _notify("a ANTA ja esta rodando (janela ou daemon). Nao vou subir outra.")
+        sys.exit(1)
+
     _notify(f"iniciando {family.label} / modo '{mode.label}' — carregando modelos...")
     pipeline = Pipeline(
         stt_key=mode.stt, llm=mode.llm,
@@ -293,6 +304,7 @@ def run() -> None:
         if listener is not None:
             listener.stop()
         pid_path.unlink(missing_ok=True)
+        trava.release()
 
 
 def toggle_daemon() -> None:

@@ -69,6 +69,17 @@ def main() -> None:
     from anta.__main__ import (
         Session, _notify, _pidfile, _to_pynput_hotkey, install_sigusr1,
     )
+    from anta.platform.singleton import SingleInstance
+
+    # Uma ANTA por vez. Duas nao sao "duas janelas": sao dois Whispers na RAM, dois
+    # preloads disputando a VRAM e dois pynput no mesmo atalho. A segunda so pede
+    # foco pra primeira e sai — clicar no atalho de novo TRAZ A ANTA pra frente.
+    trava = SingleInstance("runtime")
+    if not trava.acquire():
+        trava.signal_existing()
+        print("[anta] a ANTA ja esta aberta — trouxe a janela existente pra frente.")
+        sys.exit(0)
+
     from anta.core.capture import Recorder
     from anta.core.config import load_families, load_user_config
     from anta.core.pipeline import Pipeline
@@ -100,6 +111,7 @@ def main() -> None:
     )
     sm.add_listener(make_pywebview_emitter(window))
     api.set_window(window)
+    trava.watch_focus(api.show)  # 2a tentativa de abrir -> mostra esta janela
 
     # pidfile (p/ `anta toggle` do Wayland achar este processo) + SIGUSR1 (main thread)
     pid_path = _pidfile()
@@ -169,6 +181,7 @@ def main() -> None:
             listener.stop()
         tray.stop()
         pid_path.unlink(missing_ok=True)
+        trava.release()
 
 
 if __name__ == "__main__":

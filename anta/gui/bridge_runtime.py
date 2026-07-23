@@ -144,8 +144,13 @@ class RuntimeApi:
                 pass
 
     def show(self) -> None:
-        if self._window is not None:
+        """Mostra a janela. `restore()` junto porque "escondida" e "minimizada" sao
+        estados diferentes: quem clica no atalho da bandeja (ou tenta abrir a ANTA
+        de novo) quer a janela NA FRENTE, venha ela de qual dos dois vier."""
+        if self._window is None:
+            return
+        for metodo in ("show", "restore"):
             try:
-                self._window.show()
-            except Exception:  # noqa: BLE001
+                getattr(self._window, metodo)()
+            except Exception:  # noqa: BLE001 - backend sem o metodo / janela morta
                 pass
