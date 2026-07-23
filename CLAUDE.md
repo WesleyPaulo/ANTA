@@ -94,6 +94,11 @@ uma restricao real de hardware (GPU de 8GB).
 - `speak(texto, voice_path, output_device)`: sintetiza via `PiperVoice.synthesize`
   (API Python do `piper-tts`) e reproduz o PCM pelo `sounddevice` (mesmo backend
   da captura). Best-effort: no-op silencioso se o piper ou a voz nao existirem.
+- **`stop()` / `reset()` / `cancelled()`**: o botao "Parar" do HUD. `stop()` corta o
+  audio que ja toca (`sd.stop()` faz o `sd.wait()` retornar) **e** marca um Event de
+  modulo — as duas metades importam: sem o Event, cancelar durante a sintese so adiava
+  a fala. O Event e de modulo porque `speak()` roda no fundo (handler -> executor ->
+  pipeline) e quem cancela esta noutra thread; `Pipeline.run` chama `reset()` a cada turno.
 - `ensure_voice(nome, dest)`: baixa a voz `.onnx` (+ `.onnx.json`) do HuggingFace
   se faltar. O instalador chama quando o usuario liga o TTS.
 - Fica no `core` (nao em `actions/helpers.py`, que e folha stdlib-only) porque
@@ -185,14 +190,48 @@ uma restricao real de hardware (GPU de 8GB).
   de memoria (`Decisao.memoria`) → registra o turno na janela → retorna feedback.
 - Possui a memoria de sessao (`deque`) e o `RAG` (quando `rag=true`); `warm()` pre-aquece
   o indice em thread best-effort. Ver 4.6.
+- **`cancel()` = cancelamento COOPERATIVO.** Whisper e LLM sao chamadas bloqueantes e
+  nao dao pra interromper no meio, entao a flag e checada nas FRONTEIRAS de etapa (pos-STT,
+  pos-decide e **antes do execute**) e o que ainda nao aconteceu nao acontece — parar tem
+  que impedir o EFEITO (criar nota, abrir app), nao so calar a voz depois do fato. A fala
+  morre na hora (`tts.stop`). Turno cancelado devolve `CANCELADO` e nao entra no historico.
+  `unload()` cancela antes de soltar os modelos.
 
 ### 7. Runtime / loop — `anta/__main__.py` (`run`)
 - `run` e um **daemon quente** (Whisper carregado + LLM via `OLLAMA_KEEP_ALIVE`):
   carrega config, monta `Pipeline`, `warm()`, e alterna a gravacao no toggle.
-- O toggle vem de duas fontes num `threading.Event` (nunca trabalho pesado no
-  signal handler): `pynput` in-process (X11/Windows) ou `SIGUSR1`. No Wayland,
-  o atalho do SO chama `python -m anta toggle`, que sinaliza o daemon (pidfile).
+  E o modo **headless**, sem janela e sem bandeja — ver 7.5 para o modo normal (HUD).
+- **`Session.request()` e a entrada UNICA de qualquer gatilho** (pynput, SIGUSR1,
+  botao do HUD, menu da bandeja) e roteia por estado: suspenso -> so avisa; turno em
+  andamento -> `cancel()`; ocioso -> arma o Event. Antes o gatilho so ARMAVA o Event:
+  apertar "Falar" enquanto a ANTA respondia nao parava nada **e** deixava o Event
+  armado — o turno acabava e comecava uma gravacao fantasma.
+- `SIGUSR1` continua sem trabalho pesado no handler: ele so seta um Event e uma
+  thread despachante (`install_sigusr1`) chama a `request()`. Cancelar mexe em audio
+  (`sd.stop()`), que nao pode rodar de dentro de um signal handler.
+- `Session.suspend()/resume()`: "desalocar memoria" nao e so soltar o modelo — a
+  ANTA para de aceitar gatilhos ate carregar de novo. Sem isso o proximo atalho
+  recarregava tudo em silencio e a memoria voltava pelas costas do usuario.
 - Feedback via `notify-send` (Linux) / `print`.
+
+### 7.5 App de execucao (HUD) — `anta/gui/` (fases do frontend em `docs/frontend-fases.md`)
+- `anta app` e o modo **normal**: janela PyWebview + Vue, bandeja e o mesmo loop
+  push-to-talk (mesma `Session`, mesmo `Pipeline`). `runtime_app.py` faz o wiring;
+  `bridge_runtime.RuntimeApi` e a API exposta ao Vue; `state.StateMachine` empurra
+  cada transicao pro front (`window.__antaOnState`).
+- **A bandeja reflete o estado** (`tray.Tray.on_state` assina a `StateMachine`):
+  cor do icone + tooltip + rotulos do menu. Um app residente que ocupa VRAM tem que
+  mostrar o que esta fazendo; icone mudo (ou nenhum) e indistinguivel de vazamento.
+  Falha da bandeja e LOGADA (`return None` mudo e o pior desfecho num app sem console).
+- **Com bandeja no ar, o X esconde** (`_fechar_para_a_bandeja`); "Sair" do menu marca
+  `tray.quitting` e ai o `closing` deixa fechar. Sem bandeja o X encerra normalmente —
+  esconder sem icone nenhum deixaria a ANTA invisivel, o problema que se quer evitar.
+- O HUD mostra **VRAM/RAM em uso** (`RuntimeApi.get_memory`, polling de 10s). A VRAM e
+  a da placa (o LLM vive no processo do Ollama); a RAM e o RSS da ANTA (Whisper +
+  embedder, que por principio ficam na CPU). Sem medicao -> `None` e o HUD omite; 0.0
+  seria uma afirmacao falsa.
+- **`cancel()` e um metodo proprio, nao um `toggle`**: se o turno terminar entre o
+  render e o clique, cancelar vira no-op — um toggle atrasado comecaria a gravar.
 
 ### 8. Instalador — `anta/installer/app.py`
 - `Select` de **familia** (repovoa a tabela de modos no `Select.Changed`, guardado por
@@ -208,13 +247,20 @@ uma restricao real de hardware (GPU de 8GB).
   puxando de `self._cfg` (senao resetam ao default numa reinstalacao).
 
 ### 9. Atalho — `anta/platform/hotkey.py`
-- `setup_hotkey` por estrategia (o daemon `anta run` captura a tecla via
-  `pynput.GlobalHotKeys` no X11/Windows; no Wayland o atalho do SO chama
-  `anta toggle`):
-  - `auto_x11` / `auto_win`: autostart do daemon no login (`.desktop` / HKCU Run).
-  - `compositor` (KDE/Wayland): autostart do daemon + instrucao de `docs/atalhos.md`
+- `setup_hotkey` por estrategia (a ANTA captura a tecla via `pynput.GlobalHotKeys`
+  no X11/Windows; no Wayland o atalho do SO chama `anta toggle`):
+  - `auto_x11` / `auto_win`: autostart no login (`.desktop` / HKCU Run).
+  - `compositor` (KDE/Wayland): autostart + instrucao de `docs/atalhos.md`
     preenchida com `anta toggle` (o caminho manual e o mais robusto no Wayland).
   - `manual`: so instrucao.
+- **O login sobe o HUD (`anta app`), nao o daemon headless** — `autostart_subcommand()`
+  so cai no `run` quando o front nao foi buildado (`hud_available()`). Ate a v0.4.3 o
+  login subia `anta run`: Whisper na RAM, LLM fixo na VRAM, **nada** na tela nem na
+  bandeja e sem console. De fora era um processo fantasma comendo memoria. O HUD tambem
+  grava o pidfile, entao o `anta toggle` do Wayland continua valendo.
+- `repair_autostart()` (chamado no boot do `anta run`) migra a entrada antiga
+  `... run` -> `... app`. So mudar o codigo nao conserta a maquina de quem ja instalou;
+  a entrada e da propria ANTA, e a migracao e idempotente e avisada.
 
 ## Testes
 Suite em `tests/` (`unittest` stdlib):
@@ -233,6 +279,15 @@ editaveis (overlay/round-trip — `test_prompts.py`), os helpers do resumo (jane
 `gather_activity` por mtime/timestamp — `test_helpers.py`) e a busca web (DDG via `ddgs`
 falso + SearXNG via `urlopen` mockado, best-effort — `test_websearch.py`). Testes de I/O
 usam fakes via `sys.modules`/injecao — nao dependem de PortAudio/piper/fastembed/ddgs/rede.
+
+Da camada residente (v0.4.4): roteamento dos gatilhos e suspensao (`TestSessionRequest`
+em `test_main.py`), cancelamento cooperativo (`test_pipeline.py`) e a interrupcao da fala
+(`test_tts.py`), a bandeja com **pystray falso** — falha logada, icone/tooltip por estado,
+rotulos e acoes do menu (`test_tray.py`), a ponte do HUD (cancel, unload que suspende,
+`get_memory`, fechar-para-a-bandeja — `test_gui_runtime.py`) e o subcomando do login +
+`repair_autostart` (`test_hotkey.py`). No front, `npm test` cobre a facade e o mock do
+HUD (o mock ROTEIA como a `Session.request` — a UI nao pode ser desenvolvida contra um
+comportamento que o backend nao tem).
 
 ## Nao-metas do MVP
 - Audio do sistema / reuniao. Modo conversacional em tempo real (streaming).

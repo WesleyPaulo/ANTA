@@ -52,7 +52,10 @@ for _pkg in ("pynput", "pystray", "webview"):
 # onnxruntime. Sem isso o TTS fica MUDO no bundle (o speak() falha e — agora — loga).
 # collect_all traz datas + binaries + hiddenimports de cada pacote (best-effort).
 binaries = []
-for _pkg in ("piper", "piper_phonemize", "espeakng_loader", "onnxruntime"):
+# PIL entra no collect_all por causa da FONTE: o icone da bandeja escreve o "A" com
+# ImageFont.load_default(size=42), que le PIL/fonts/Aileron-Regular.otf — um DADO do
+# pacote, que a analise estatica nao traz. Sem ele o icone cai no fallback (bolinha).
+for _pkg in ("piper", "piper_phonemize", "espeakng_loader", "onnxruntime", "PIL"):
     try:
         _d, _b, _h = collect_all(_pkg)
         datas += _d

@@ -1,6 +1,6 @@
 [project]
 name = "anta"
-version = "0.4.3"
+version = "0.4.4"
 description = "Assistente de voz local, push-to-talk, com memoria e busca (RAG) nas notas e instalador cross-platform que recomenda modos por VRAM."
 requires-python = ">=3.11"
 readme = "README.md"

@@ -23,12 +23,39 @@ duplicados (WASAPI), badge "mock" falso, layout da revisão, versão, **crash se
 não resolvia). Todos com testes.
 
 ### Polimento (próximas sessões)
-- [ ] **Autostart no login** — confirmar após reboot (a opção do instalador grava `HKCU\Run`).
 - [ ] **Assinatura de código** — some com o SmartScreen e evita o Kaspersky re-perguntar a
   cada build (EV = imediato; OV/Azure Trusted Signing/SignPath = alternativas).
 - [ ] **Linux nativo** (AppImage) — backend Qt do pywebview; validar abertura + áudio.
 - [ ] **macOS** — não suportado hoje (gate de VRAM assume NVIDIA).
 - [ ] **Polimento visual fino** — calibrar tamanhos/animações com as janelas abertas.
+
+## 🔁 Rodada v0.4.4 — presença + parar (a validar no Windows)
+
+Reportado na validação anterior: **a ANTA subia com o PC, ocupava RAM/VRAM e não
+aparecia em lugar nenhum** (nem janela, nem bandeja). Causa: o autostart apontava para
+`anta run` (headless). Também: o botão continuava "Falar" enquanto o TTS falava.
+
+- [ ] **Autostart abre o HUD:** reiniciar → a **janela** aparece e o **ícone da bandeja**
+      também. Conferir o valor em `HKCU\...\Run`: tem que terminar em `" app`.
+- [ ] **Migração automática:** numa máquina com o autostart antigo, rodar `anta run` uma vez
+      → avisa que corrigiu a entrada; no próximo login sobe o HUD.
+- [ ] **Bandeja fala:** o ícone **muda de cor** por estado (azul pronto / vermelho ouvindo /
+      verde respondendo / cinza desalocado) e o tooltip diz o estado. Menu: Mostrar / Ocultar /
+      Falar↔Parar / Desalocar↔Carregar memória / Sair.
+- [ ] **X esconde, Sair encerra:** fechar a janela some com ela mas o ícone fica (e o atalho
+      continua funcionando); "Sair" do menu encerra o processo de verdade.
+- [ ] **Sem bandeja (Wayland puro):** o app segue só com a janela e o X volta a encerrar —
+      anotar o motivo logado em `anta.log` (`[anta][tray] ...`).
+- [ ] **Botão Parar:** com TTS ligado, falar algo longo → durante a fala o botão fica
+      **vermelho "Parar"**; clicar **corta o áudio na hora** e volta a "Pronto". Nada de
+      gravação começando sozinha depois.
+- [ ] **Parar antes do efeito:** pedir "cria uma nota sobre X" e apertar Parar durante
+      "Processando" → a nota **não** é criada.
+- [ ] **Atalho global também para:** apertar `ctrl+alt+space` enquanto responde interrompe
+      (em vez de enfileirar uma gravação).
+- [ ] **Desalocar memória:** o botão libera VRAM (`nvidia-smi`) **e pausa a ANTA** — apertar
+      o atalho depois não grava, só avisa. "Carregar memória" volta a "Pronto".
+- [ ] **Medidor:** a linha `VRAM x/y GB · RAM z GB` aparece e **cai** depois de desalocar.
 
 ---
 
@@ -56,8 +83,10 @@ não resolvia). Todos com testes.
 - [ ] **Paleta:** preto/branco + azul escuro renderiza bem no claro **e** no escuro do SO.
 
 ## 2. App de execução — `anta app`
-- [ ] **Bandeja:** ícone aparece (pystray); menu Mostrar/Falar/Descarregar/Sair funciona.
-      (No **Wayland puro** pode não haver tray — o app segue só com a janela; anotar.)
+- [ ] **Bandeja:** ícone aparece (pystray) e **muda de cor/tooltip** com o estado; menu
+      Mostrar/Ocultar/Falar↔Parar/Desalocar↔Carregar/Sair funciona.
+      (No **Wayland puro** pode não haver tray — o app segue só com a janela; o motivo fica
+      logado como `[anta][tray] ...` no `anta.log`; anotar.)
 - [ ] **Máquina de estados anima:** carregando → pronto → (atalho) ouvindo → processando →
       respondendo → pronto. O orb muda por estado (ping/spin/pulse).
 - [ ] **Atalho global dispara o ciclo:**
@@ -65,8 +94,8 @@ não resolvia). Todos com testes.
   - [ ] **Wayland/KDE:** vincular o atalho do SO a `anta toggle` (ver `docs/atalhos.md`); dispara via SIGUSR1.
   - [ ] **Botão Falar/Parar** do HUD faz o mesmo (converge no mesmo gatilho).
 - [ ] **Resposta:** texto aparece no HUD e (se TTS) sai por áudio.
-- [ ] **Descarregar modelo:** o botão libera VRAM — confirmar com `nvidia-smi` (a memória do LLM cai);
-      estado vira "descarregado"; **Carregar** volta a "pronto".
+- [ ] **Desalocar memória:** o botão libera VRAM — confirmar com `nvidia-smi` (a memória do LLM cai);
+      estado vira "memória desalocada" e o **atalho para de gravar**; **Carregar memória** volta a "pronto".
 - [ ] **"Não ouviu":** falar em silêncio → estado erro (code=mic) → botão **Abrir Configurador**
       abre o Configurador (o runtime nunca escreve o config).
 - [ ] **`anta run` intacto:** o daemon headless antigo funciona igual (sem GUI).
