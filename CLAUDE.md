@@ -232,6 +232,26 @@ uma restricao real de hardware (GPU de 8GB).
   seria uma afirmacao falsa.
 - **`cancel()` e um metodo proprio, nao um `toggle`**: se o turno terminar entre o
   render e o clique, cancelar vira no-op — um toggle atrasado comecaria a gravar.
+- **Uma instancia por app** (`anta/platform/singleton.py`): lock de arquivo do SO
+  (`flock`/`msvcrt`), nao pidfile — processo morto no tapa nao deixa trava velha, e
+  PID reciclado nao engana. Travas: `runtime` (compartilhada por `anta app` e
+  `anta run` — e o mesmo assistente com e sem janela; duas = dois Whispers na RAM,
+  dois preloads na VRAM, dois `pynput` no mesmo atalho) e `config` (o Configurador e
+  o unico writer do TOML; duas janelas editando = a ultima a salvar apaga a outra).
+  A 2a tentativa nao abre: escreve a sentinela `<nome>.focus`, que a instancia viva
+  consome num watcher e MOSTRA a janela. E a unica IPC que funciona nos dois SOs
+  (Windows nao tem sinais) e faz "abrir de novo" virar "traz pra frente".
+- Falhar ao criar a trava (disco/permissao) NAO impede o app de abrir: a trava e
+  comodidade, e virar "a ANTA nao abre" seria um remedio pior que a doenca.
+
+### 7.6 Configurador (App A) — `anta/gui/config_app.py`
+- `window_size()` corta o tamanho pedido pela TELA REAL (`webview.screens`) antes do
+  minimo: pedir 1180x900 num monitor de 768 de altura faz o rodape (Voltar/Avancar/
+  Salvar) nascer fora da area visivel.
+- O card "Ambiente" mostra `os_label`/`detail` (de `Environment.label`/`.detail`),
+  nao os campos crus: no Windows `os` e `session` valem os DOIS "windows", e a tela
+  dizia "windows / windows". No Linux o detalhe e `sessao · desktop` (o que de fato
+  muda a estrategia de atalho); no Windows, como o atalho global vai funcionar.
 
 ### 8. Instalador — `anta/installer/app.py`
 - `Select` de **familia** (repovoa a tabela de modos no `Select.Changed`, guardado por

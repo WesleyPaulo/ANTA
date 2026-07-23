@@ -56,6 +56,18 @@ aparecia em lugar nenhum** (nem janela, nem bandeja). Causa: o autostart apontav
 - [ ] **Desalocar memória:** o botão libera VRAM (`nvidia-smi`) **e pausa a ANTA** — apertar
       o atalho depois não grava, só avisa. "Carregar memória" volta a "Pronto".
 - [ ] **Medidor:** a linha `VRAM x/y GB · RAM z GB` aparece e **cai** depois de desalocar.
+- [ ] **Uma ANTA por vez:** com o HUD aberto, abrir o atalho/exe de novo **não** cria
+      segunda janela — traz a existente pra frente (até ~1s). Idem com a janela escondida
+      na bandeja. `anta run` com o HUD aberto recusa ("já está rodando").
+- [ ] **Um Configurador por vez:** abrir duas vezes traz a janela existente (o Configurador
+      é o único writer do config; duas janelas = a última a salvar apaga a outra).
+- [ ] **Trava não trava:** matar a ANTA pelo Gerenciador de Tarefas e abrir de novo → abre
+      normal (o lock é do SO, não um pidfile órfão).
+- [ ] **Janela do Configurador:** abre mostrando o passo "Modelo" inteiro (cards + tabela
+      de modos + Avançar) **sem rolagem** num monitor comum; em tela pequena, ela cabe na
+      tela (rodapé visível) em vez de nascer maior que o monitor.
+- [ ] **Card Ambiente:** mostra "Windows 11" + "atalho global automatico" (era
+      "windows / windows").
 
 ---
 
